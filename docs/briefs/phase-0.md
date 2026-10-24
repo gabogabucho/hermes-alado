@@ -9,22 +9,38 @@ says "verify", open the cited file and confirm before coding.
 
 ---
 
+> **Source of truth: `.hermes-ref/` (Hermes git checkout pinned at `bf0203a`, = our VPS).**
+> All Hermes paths below are relative to `.hermes-ref/`. Line numbers are approximate —
+> search by symbol. Never read `%LOCALAPPDATA%\hermes\hermes-agent` (stale).
+>
+> Our real backend: `https://droidbot.gabrielurrutia.com.ar` (Caddy → `hermes serve`,
+> **gated mode** with the `basic` dashboard-auth provider: password form at `/login` →
+> `__Host-` session cookie → ws-ticket). Gated is the primary mode; loopback is secondary.
+
 ## 0. Install
 
-`cd repo && npm install` (no node_modules yet). Add deps only if listed here.
+`cd repo && npm install`. `@fontsource-variable/manrope` is already added. Add other deps only if listed here.
 
-## 1. Transport: vendor the official JSON-RPC client (do NOT write your own)
+## 1. Transport: vendor the official client + generated contract (do NOT write your own)
 
-- Copy `C:\Users\gabog\AppData\Local\hermes\hermes-agent\apps\shared\src\json-rpc-gateway.ts`
-  **verbatim** to `repo/src/lib/hermes/json-rpc-gateway.ts`, adding the MIT header from AGENTS.md
-  rule 3 at the top. Only change what TypeScript in this repo forces you to (report any change).
-  It already does: id correlation, heartbeat (`gateway.ping`, enabled when `gateway.ready`
-  advertises `heartbeat: true`), lossless reconnect replay (`session.events.since` + `replay_epoch`).
-- It does NOT reconnect on its own. That is our job (section 3).
+Copy **verbatim** from `.hermes-ref/apps/shared/src/` into `repo/src/lib/hermes/vendor/`:
+`json-rpc-gateway.ts`, `json-rpc-channel.ts`, `gateway-events.ts`,
+`gateway-contract.generated.ts`, `reconnect-backoff.ts`, `websocket-url.ts`
+(plus anything they import, transitively — list it in the report).
+- Add the MIT header (AGENTS.md rule 3) and `// vendored from hermes-agent@bf0203a` on line 1–2.
+- Keep the `.js` import specifiers if `moduleResolution: bundler` accepts them; otherwise the
+  only allowed edit is the import specifier. Report every edit.
+- If `oxlint`/`tsc` flag the vendored code, exclude `src/lib/hermes/vendor/**` from lint and
+  fix types only through our wrapper, not inside vendor files.
+- Read `json-rpc-gateway.ts` + `json-rpc-channel.ts` fully: understand heartbeat, replay
+  (`session.events.since`, `replay_epoch`), and whether it reconnects by itself. Use
+  `reconnect-backoff.ts` for our backoff instead of inventing one.
+- See how the desktop wires it: `apps/desktop/src/api/client.ts` and
+  `apps/desktop/src/app/gateway/hooks/use-gateway-boot.ts`.
 
 ## 2. Auth: support the two Hermes modes
 
-Verified in `hermes_cli/web_server.py`:
+Verified in `hermes_cli/web_server.py` (re-verify at `bf0203a`):
 
 | Mode | How to detect | REST auth | WS auth |
 |---|---|---|---|
@@ -63,22 +79,20 @@ Implement `repo/src/lib/hermes/auth.ts`:
 - Small UI: a thin "Reconectando…" banner at the top of the app when state is not `open`
   after having been open once.
 
-## 4. Typed contract
+## 4. Typed contract — use the GENERATED one
 
-`repo/src/lib/hermes/rpc-types.ts`. Write params/results **from the Python source**, not guesses:
-- `session.create` (`tui_gateway/methods_session.py` L14) — params we use: `profile`, `title`,
-  `cols`, `source`. Result: read it.
-- `session.resume` (L455) — `session_id` (state.db id or title), `profile`, `omit_messages`. Result: read it.
-- `prompt.submit` (`methods_prompt.py`) — `session_id` (the **live sid** from create/resume,
-  NOT the db id), `text`.
-- `session.interrupt`, `approval.respond`, `clarify.respond`, `session.history`.
-- Event payloads: `gateway.ready`, `session.info`, `message.start`, `message.delta`,
-  `message.complete`, `tool.start`, `tool.progress`, `tool.complete`, `approval.request`,
-  `clarify.request`, `status.update`, `error`. Use
-  `apps/desktop/src/lib/gateway-events.ts` and the emit sites in `tui_gateway/server.py`
-  (search `_emit("message.delta"` etc.) as sources.
-- Add a comment at the top: `// Contract verified against hermes-agent <git short sha>` (run
-  `git -C <hermes-agent> log -1 --format=%h`).
+Hermes ships a generated contract: `vendor/gateway-contract.generated.ts` (from
+`tui_gateway/contracts`, also `gateway-contract.openrpc.json`). It has a method map like
+`'prompt.submit': { params: PromptSubmitParams; result: PromptSubmitResult }` and
+`BackendGatewayEventMap` for event payloads. **Do not hand-write RPC types.**
+- In `connection.ts`, expose a typed `request<M extends keyof <MethodMap>>(method, params)` and
+  typed `on<E extends keyof BackendGatewayEventMap>(type, handler)` built on those maps.
+- Key semantics to respect (verify in `tui_gateway/methods_session.py` / `methods_prompt.py`):
+  `session.create`/`session.resume` return a **live sid**; `prompt.submit` takes that live sid,
+  NOT the state.db id; `session.resume` accepts the db id (or title).
+- `src/lib/hermes/contract-version.ts`: `export const HERMES_CONTRACT_COMMIT = 'bf0203a'`.
+  On boot, call `GET /api/version` (read its shape) and `console.warn` if it doesn't report the
+  same commit (no UI yet).
 
 ## 5. Minimal chat on the new transport (proves the phase)
 
@@ -94,12 +108,19 @@ Rewrite `store/chat.ts` to use `hermes` instead of `ConsoleClient`:
 
 ## 6. Dev proxy (`repo/vite.config.ts`)
 
-- Keep `/api`, `/auth`, `/login` proxies.
+- Default target: `process.env.HERMES_URL || 'https://droidbot.gabrielurrutia.com.ar'`
+  (`secure: true`, `changeOrigin: true`). Local Hermes: `HERMES_URL=http://localhost:9119`.
+- Keep `/api`, `/auth`, `/login` proxies (login form and its POST must round-trip so the
+  `__Host-` cookie lands on `localhost` — verify the login redirect `next=` returns to the dev
+  server and not to the remote domain; if Hermes sends an absolute `Location`, rewrite it
+  in the proxy).
 - Add `/__hermes_root` → Hermes `/` (rewrite path) so dev can read the loopback token.
-- The WS upgrade on `/api/ws`: Hermes rejects an `Origin` that is not its bound host
+- The WS upgrade on `/api/ws`: Hermes rejects an `Origin` that is not its bound/public host
   (`_ws_host_origin_reason`). In the proxy `configure` hook, on `proxyReqWs` set the
   `origin` header to the proxy target origin. (`changeOrigin` already fixes `Host`.)
-- `server.host: true` so a phone on the LAN can reach the dev server.
+- Do the same `origin` rewrite on normal `proxyReq` for non-GET requests if Hermes checks it.
+- `server.host: true` (LAN access), but note in the README that gated-mode login from a phone
+  over plain `http://<lan-ip>` won't work (Secure cookies) — phones test against an HTTPS deploy.
 
 ## 7. Reorganize (plan D9)
 
@@ -180,8 +201,11 @@ it from a phone on the LAN, and the license note about vendored MIT code.
 ## Definition of done
 
 - `npx tsc -p tsconfig.app.json --noEmit` and `npm run lint` pass.
-- With Hermes running locally in loopback mode, opening a bot chat streams the reply token by
-  token over `/api/ws`, and killing/restoring the network reconnects without reloading.
+- You cannot log in yourself (password is the user's). So: `npm run dev` must start cleanly,
+  `curl -s http://localhost:5173/api/status` must return Hermes JSON through the proxy, and
+  `curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/api/auth/me` must return `401`
+  (proxy reaches the gated VPS). Stop the dev server afterwards. The architect does the
+  end-to-end login + streaming test.
 - `/__ui` shows all primitives.
 - Final report (print it at the end): files created/moved, any deviation from this brief and why,
   anything in Hermes that did not match the brief (with file:line), open questions.

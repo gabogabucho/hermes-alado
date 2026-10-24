@@ -5,8 +5,9 @@ Product plan: `../PLAN-droidbot-v2.md`. Phase briefs: `../docs/briefs/`.
 
 ## Hard rules
 
-1. **Read the real contract before calling anything.** Hermes source lives at
-   `C:\Users\gabog\AppData\Local\hermes\hermes-agent`.
+1. **Read the real contract before calling anything.** The source of truth is the Hermes
+   git checkout at `../.hermes-ref/`, pinned to commit `bf0203a` — the exact version running
+   on our VPS. Do NOT use `%LOCALAPPDATA%\hermes\hermes-agent` (stale, 7 weeks older).
    - REST: `hermes_cli/web_server.py`, `hermes_cli/web_routers/*.py`
    - JSON-RPC over `/api/ws`: `tui_gateway/server.py`, `tui_gateway/methods_*.py`
    - Reference client (desktop app): `apps/desktop/src/**`, `apps/shared/src/**`
@@ -25,6 +26,10 @@ Product plan: `../PLAN-droidbot-v2.md`. Phase briefs: `../docs/briefs/`.
 7. Do not run `npm run build` / `vite build`. Verification allowed:
    `npx tsc -p tsconfig.app.json --noEmit` and `npm run lint`.
 8. Keep it simple: no speculative abstractions, no features beyond the brief.
+9. **Never touch the VPS** (no ssh, no deploy). A v1 DroidBot is live at
+   `droidbot.gabrielurrutia.com.ar` (`/var/www/droidbot`) and must keep working.
+10. Vendored files under `src/lib/hermes/vendor/` are copied verbatim from `.hermes-ref`;
+    never edit them by hand — re-copy when the pinned commit changes.
 
 ## Stack
 

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '@nanostores/react'
 import { apiFetch } from '../../lib/api'
-import { BotAvatar } from '../../components/BotAvatar'
-import { loadProfiles, profiles } from '../../store/profiles'
+import { Avatar } from '../../ui/Avatar'
+import { loadProfiles, profiles } from '../bots/store'
 
 export function ConnectorsPage() {
   const list = useStore(profiles)
@@ -34,9 +34,9 @@ export function ConnectorsPage() {
       {list.length === 0 && <p className="muted">No hay bots.</p>}
 
       <div className="list">
-        {list.map((p) => (
+        {list.map(p => (
           <div key={p.name} className="card row">
-            <BotAvatar name={p.name} />
+            <Avatar name={p.name} />
             <div className="spacer">
               <div>{p.name}</div>
               <span className={p.gateway_running ? 'chip ok' : 'chip'}>
@@ -56,5 +56,3 @@ export function ConnectorsPage() {
     </div>
   )
 }
-
-

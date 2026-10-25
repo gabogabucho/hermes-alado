@@ -1,8 +1,42 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type ProxyOptions } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const proxyTarget = process.env.HERMES_URL || 'http://localhost:9119'
+const proxyTarget = process.env.HERMES_URL || 'https://droidbot.gabrielurrutia.com.ar'
+const targetOrigin = new URL(proxyTarget).origin
+
+/**
+ * Shared proxy behaviour for the Hermes dashboard routes:
+ * - `changeOrigin` rewrites `Host`; the explicit `origin` header rewrite covers
+ *   the WS-upgrade Origin guard (`_ws_host_origin_reason` in Hermes) and any
+ *   non-GET REST check.
+ * - Absolute `Location` headers (login redirects) are rewritten back to the dev
+ *   origin so the `next=` round-trip lands on `localhost`, not the remote host.
+ */
+function hermesProxy(options: ProxyOptions = {}): ProxyOptions {
+  return {
+    target: proxyTarget,
+    changeOrigin: true,
+    secure: true,
+    configure(proxy) {
+      proxy.on('proxyReq', (proxyReq, req) => {
+        if (req.method && req.method !== 'GET') {
+          proxyReq.setHeader('origin', targetOrigin)
+        }
+      })
+      proxy.on('proxyReqWs', proxyReq => {
+        proxyReq.setHeader('origin', targetOrigin)
+      })
+      proxy.on('proxyRes', proxyRes => {
+        const loc = proxyRes.headers.location
+        if (typeof loc === 'string' && loc.startsWith(targetOrigin)) {
+          proxyRes.headers.location = loc.slice(targetOrigin.length)
+        }
+      })
+    },
+    ...options,
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -29,10 +63,14 @@ export default defineConfig({
     }),
   ],
   server: {
+    host: true,
     proxy: {
-      '/api': { target: proxyTarget, changeOrigin: true, ws: true },
-      '/auth': { target: proxyTarget, changeOrigin: true },
-      '/login': { target: proxyTarget, changeOrigin: true },
+      '/api': hermesProxy({ ws: true }),
+      '/auth': hermesProxy(),
+      '/login': hermesProxy(),
+      '/__hermes_root': hermesProxy({
+        rewrite: p => p.replace(/^\/__hermes_root/, '') || '/',
+      }),
     },
   },
 })

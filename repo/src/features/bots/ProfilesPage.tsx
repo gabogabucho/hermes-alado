@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { BotAvatar } from '../../components/BotAvatar'
+import { Avatar } from '../../ui/Avatar'
+import type { Profile } from '../../lib/types'
 import {
   activeProfile,
   createProfile,
@@ -10,8 +11,7 @@ import {
   profilesError,
   profilesLoading,
   setActiveProfile,
-} from '../../store/profiles'
-import type { Profile } from '../../lib/types'
+} from './store'
 
 export function ProfilesPage() {
   const navigate = useNavigate()
@@ -51,7 +51,7 @@ export function ProfilesPage() {
       <div className="row">
         <h1 className="page-title">Bots</h1>
         <span className="spacer" />
-        <button className="btn" onClick={() => setCreating((v) => !v)}>
+        <button className="btn" onClick={() => setCreating(v => !v)}>
           {creating ? 'Cancelar' : 'Nuevo'}
         </button>
       </div>
@@ -62,7 +62,7 @@ export function ProfilesPage() {
             className="input"
             placeholder="Nombre del bot"
             value={newName}
-            onChange={(e) => setNewName(e.target.value)}
+            onChange={e => setNewName(e.target.value)}
           />
           <button className="btn btn-primary btn-block" style={{ marginTop: 10 }} onClick={() => void onCreate()}>
             Crear
@@ -80,13 +80,9 @@ export function ProfilesPage() {
       )}
 
       <div className="list">
-        {list.map((p) => (
-          <button
-            key={p.name}
-            className="card profile-card"
-            onClick={() => void onSelect(p)}
-          >
-            <BotAvatar name={p.name} />
+        {list.map(p => (
+          <button key={p.name} className="card profile-card" onClick={() => void onSelect(p)}>
+            <Avatar name={p.name} />
             <div className="profile-info">
               <div className="profile-name">
                 {p.display_name || p.name}
@@ -101,5 +97,3 @@ export function ProfilesPage() {
     </div>
   )
 }
-
-

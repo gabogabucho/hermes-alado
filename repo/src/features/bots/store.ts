@@ -1,6 +1,6 @@
 import { atom } from 'nanostores'
-import { apiFetch } from '../lib/api'
-import type { Profile } from '../lib/types'
+import { apiFetch } from '../../lib/api'
+import type { Profile } from '../../lib/types'
 
 export const profiles = atom<Profile[]>([])
 export const profilesLoading = atom<boolean>(false)

@@ -1,31 +1,5 @@
-:root {
-  --bg: #17120c;
-  --bg-elevated: #1f1710;
-  --surface: #2a2015;
-  --surface-hover: #33271a;
-  --border: #3d3020;
-  --border-strong: #55442c;
-
-  --gold: #e0b34c;
-  --gold-bright: #f2c96a;
-  --gold-dim: #a8813a;
-
-  --text: #f3ecdf;
-  --text-muted: #a8947a;
-  --text-faint: #6d5f4d;
-
-  --danger: #d5654f;
-  --ok: #7fbf7f;
-
-  --radius: 14px;
-  --radius-sm: 9px;
-
-  --font:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica,
-    Arial, sans-serif;
-
-  color-scheme: dark;
-}
+@import url('./ui/tokens.css');
+@import url('./ui/ui.css');
 
 * {
   box-sizing: border-box;
@@ -40,14 +14,14 @@ body,
 
 body {
   background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
+  color: var(--text-1);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
 
 a {
-  color: var(--gold);
+  color: var(--accent);
   text-decoration: none;
 }
 
@@ -67,7 +41,18 @@ button {
 .app-main {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 16px calc(76px + env(safe-area-inset-bottom));
+  padding: var(--space-4) var(--space-4) calc(76px + var(--safe-bottom));
+}
+
+.reconnect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.82rem;
+  color: var(--on-accent);
+  background: var(--accent);
 }
 
 .page-title {
@@ -78,15 +63,15 @@ button {
 }
 
 .page-subtitle {
-  color: var(--text-muted);
+  color: var(--text-2);
   font-size: 0.9rem;
   margin: -10px 0 16px;
 }
 
 .card {
-  background: var(--surface);
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--r-md);
   padding: 14px;
 }
 
@@ -111,10 +96,10 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  color: var(--text);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-1);
+  border-radius: var(--r-sm);
   padding: 10px 14px;
   font-size: 0.92rem;
   font-weight: 600;
@@ -125,9 +110,9 @@ button {
 }
 
 .btn-primary {
-  background: var(--gold);
-  border-color: var(--gold);
-  color: #1a1206;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 
 .btn-block {
@@ -136,29 +121,29 @@ button {
 
 .input {
   width: 100%;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-strong);
-  color: var(--text);
-  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  border-radius: var(--r-sm);
   padding: 12px;
   font-size: 1rem;
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--gold);
+  border-color: var(--accent);
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--bg-elevated);
+  background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--r-full);
   padding: 4px 12px;
   font-size: 0.82rem;
-  color: var(--text-muted);
+  color: var(--text-2);
 }
 
 .chip.ok {
@@ -167,30 +152,16 @@ button {
 }
 
 .chip.warn {
-  color: var(--gold-bright);
-  border-color: var(--gold-dim);
-}
-
-.avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  color: #1a1206;
-  background: var(--gold);
-  flex-shrink: 0;
-  font-size: 1.05rem;
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .muted {
-  color: var(--text-muted);
+  color: var(--text-2);
 }
 
 .faint {
-  color: var(--text-faint);
+  color: var(--text-3);
   font-size: 0.8rem;
 }
 
@@ -210,7 +181,7 @@ button {
 .empty {
   text-align: center;
   padding: 48px 20px;
-  color: var(--text-muted);
+  color: var(--text-2);
 }
 
 .login-wrap {
@@ -228,8 +199,8 @@ button {
   width: 72px;
   height: 72px;
   border-radius: 20px;
-  background: var(--gold);
-  color: #1a1206;
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: 2.2rem;
   font-weight: 800;
   display: flex;
@@ -245,7 +216,7 @@ button {
 .profile-card {
   width: 100%;
   text-align: left;
-  color: var(--text);
+  color: var(--text-1);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -282,8 +253,8 @@ button {
 .navbar {
   display: flex;
   border-top: 1px solid var(--border);
-  background: var(--bg-elevated);
-  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--surface-1);
+  padding-bottom: var(--safe-bottom);
 }
 
 .navbar-item {
@@ -293,12 +264,12 @@ button {
   align-items: center;
   gap: 2px;
   padding: 10px 0;
-  color: var(--text-muted);
+  color: var(--text-2);
   font-size: 0.72rem;
 }
 
 .navbar-item.active {
-  color: var(--gold-bright);
+  color: var(--accent);
 }
 
 .navbar-icon {
@@ -370,13 +341,13 @@ button {
 }
 
 .msg.user .msg-bubble {
-  background: var(--gold);
-  color: #1a1206;
+  background: var(--accent);
+  color: var(--on-accent);
   border-bottom-right-radius: 4px;
 }
 
 .msg.assistant .msg-bubble {
-  background: var(--surface);
+  background: var(--bubble-bot);
   border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
 }
@@ -391,23 +362,23 @@ button {
 
 .composer-input {
   flex: 1;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-strong);
-  color: var(--text);
-  border-radius: 999px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  border-radius: var(--r-full);
   padding: 11px 16px;
   font-size: 1rem;
 }
 
 .composer-input:focus {
   outline: none;
-  border-color: var(--gold);
+  border-color: var(--accent);
 }
 
 .composer-send {
   width: 44px;
   height: 44px;
-  border-radius: 999px;
+  border-radius: var(--r-full);
   padding: 0;
 }
 
@@ -418,11 +389,31 @@ button {
 }
 
 .confirm-cmd {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   padding: 10px;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   word-break: break-all;
+}
+
+.ui-section {
+  margin: var(--space-5) 0;
+}
+
+.ui-section > h2 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-3);
+}
+
+.ui-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
 }

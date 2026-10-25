@@ -1,0 +1,244 @@
+/* Design-system primitives (presentational only — no stores). */
+
+/* IconButton — circular glass button (40px) */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-full);
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--text-1);
+  transition: transform var(--motion-fast) var(--ease), background var(--motion-fast) var(--ease);
+}
+
+.icon-button--glass {
+  background: var(--glass);
+  border-color: var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.icon-button--solid {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.icon-button--ghost {
+  background: transparent;
+}
+
+.icon-button:active {
+  transform: scale(0.94);
+}
+
+/* Pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--r-full);
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.pill-leading {
+  display: inline-flex;
+}
+
+/* ListRow */
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  border: none;
+  background: var(--surface-1);
+  border-radius: var(--r-md);
+  color: var(--text-1);
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.list-row:active {
+  background: var(--surface-2);
+}
+
+.list-row-leading {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.list-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.list-row-title {
+  font-weight: 600;
+}
+
+.list-row-subtitle {
+  color: var(--text-2);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-row-trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+/* Toggle */
+.toggle {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--motion-fast) var(--ease);
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-full);
+  background: var(--text-2);
+  transition: transform var(--motion-fast) var(--ease), background var(--motion-fast) var(--ease);
+}
+
+.toggle--on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.toggle--on .toggle-thumb {
+  transform: translateX(20px);
+  background: var(--on-accent);
+}
+
+/* Sheet */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 560px;
+  background: var(--surface-1);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  padding: var(--space-2) var(--space-4) calc(var(--space-4) + var(--safe-bottom));
+  animation: sheet-in var(--motion-slow) var(--ease);
+}
+
+.sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--text-3);
+  margin: var(--space-1) auto var(--space-3);
+}
+
+.sheet-title {
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Avatar */
+.avatar {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.avatar-badge {
+  position: absolute;
+  top: -6%;
+  right: -6%;
+}
+
+.avatar-stack {
+  display: inline-flex;
+  align-items: center;
+}
+
+.avatar-stack > * + * {
+  margin-left: -8px;
+}
+
+.avatar-stack-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 2px solid var(--bg);
+}
+
+/* Skeleton */
+.skeleton {
+  display: block;
+  height: 14px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.skeleton--circle {
+  border-radius: var(--r-full);
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}

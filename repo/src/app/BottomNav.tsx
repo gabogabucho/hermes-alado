@@ -9,7 +9,7 @@ const items = [
 export function BottomNav() {
   return (
     <nav className="navbar">
-      {items.map((it) => (
+      {items.map(it => (
         <NavLink
           key={it.to}
           to={it.to}

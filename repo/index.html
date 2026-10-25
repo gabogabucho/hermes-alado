@@ -8,6 +8,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Hermes</title>
+    <script>
+      // Apply the theme before first paint (droidbot.theme is not a secret).
+      ;(function () {
+        var stored = null
+        try {
+          stored = localStorage.getItem('droidbot.theme')
+        } catch (e) {}
+        var choice = stored === 'hermes' || stored === 'clean' ? stored : 'system'
+        var dark = choice === 'hermes' || (choice === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        var theme = dark ? 'hermes' : 'clean'
+        document.documentElement.setAttribute('data-theme', theme)
+        var meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.setAttribute('content', dark ? '#17120c' : '#f2f2f4')
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

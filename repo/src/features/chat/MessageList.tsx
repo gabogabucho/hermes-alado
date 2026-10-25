@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { ChatMsg } from '../store/chat'
+import type { ChatMsg } from './store'
 
 export function MessageList({ messages }: { messages: ChatMsg[] }) {
   const endRef = useRef<HTMLDivElement>(null)
@@ -18,8 +18,8 @@ export function MessageList({ messages }: { messages: ChatMsg[] }) {
 
   return (
     <div className="msg-list">
-      {messages.map((m, i) => (
-        <div key={i} className={`msg ${m.role}`}>
+      {messages.map(m => (
+        <div key={m.id} className={`msg ${m.role}`}>
           <div className="msg-bubble">
             {m.text ? m.text : m.pending ? '…' : ''}
           </div>

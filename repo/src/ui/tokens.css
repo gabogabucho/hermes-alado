@@ -1,0 +1,86 @@
+/*
+ * Semantic design tokens. A theme is just a token set on <html data-theme="…">.
+ * Dark (hermes) is the :root default so a dark-mode user never sees a light
+ * flash before the inline bootstrap script in index.html resolves the choice.
+ */
+:root {
+  color-scheme: dark;
+
+  /* hermes (warm near-black + gold) */
+  --bg: #17120c;
+  --surface-1: #1f1710;
+  --surface-2: #2a2015;
+  --surface-3: #33271a;
+  --glass: rgba(42, 32, 21, 0.72);
+  --glass-border: rgba(61, 48, 32, 0.6);
+  --text-1: #f3ecdf;
+  --text-2: #a8947a;
+  --text-3: #6d5f4d;
+  --accent: #e0b34c;
+  --on-accent: #1a1206;
+  --bubble-bot: var(--surface-2);
+  --border: #3d3020;
+  --danger: #d5654f;
+  --ok: #7fbf7f;
+}
+
+:root[data-theme='clean'] {
+  color-scheme: light;
+
+  /* clean (light gray/white + ink accent) */
+  --bg: #f2f2f4;
+  --surface-1: #ffffff;
+  --surface-2: #f7f7f8;
+  --surface-3: #ececef;
+  --glass: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --text-1: #111114;
+  --text-2: #5c5c66;
+  --text-3: #9a9aa3;
+  --accent: #111114;
+  --on-accent: #ffffff;
+  --bubble-bot: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --danger: #d6453d;
+  --ok: #1f9d55;
+}
+
+:root {
+  /* radii */
+  --r-sm: 12px;
+  --r-md: 20px;
+  --r-lg: 28px;
+  --r-full: 999px;
+
+  /* 4-pt spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* type */
+  --font-sans:
+    'Manrope Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Menlo, monospace;
+
+  /* shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* motion */
+  --motion-fast: 120ms;
+  --motion-slow: 280ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* safe areas */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* per-bot accent (overridden by the avatar/bot identity) */
+  --bot-accent: var(--accent);
+}

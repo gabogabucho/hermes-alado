@@ -1,34 +1,12 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { authStatus, checkAuth } from '../store/auth'
-import { loadActiveProfile } from '../store/profiles'
-import { BottomNav } from '../components/BottomNav'
-import { LoginPage } from './pages/LoginPage'
-import { ProfilesPage } from './pages/ProfilesPage'
-import { ChatPage } from './pages/ChatPage'
-import { ConnectorsPage } from './pages/ConnectorsPage'
-import { SettingsPage } from './pages/SettingsPage'
-
-function Shell() {
-  const location = useLocation()
-  const isChat = location.pathname.startsWith('/chat/')
-
-  return (
-    <>
-      <div className={isChat ? 'app-main chat' : 'app-main'}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/profiles" replace />} />
-          <Route path="/profiles" element={<ProfilesPage />} />
-          <Route path="/chat/:name" element={<ChatPage />} />
-          <Route path="/connectors" element={<ConnectorsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
-      </div>
-      {!isChat && <BottomNav />}
-    </>
-  )
-}
+import { LoginPage } from '../features/auth/LoginPage'
+import { authStatus, checkAuth } from '../features/auth/store'
+import { loadActiveProfile } from '../features/bots/store'
+import { close, connect } from '../lib/hermes/connection'
+import { verifyContractCommit } from '../lib/hermes/contract-version'
+import { Shell } from './Shell'
 
 export function App() {
   const status = useStore(authStatus)
@@ -38,7 +16,11 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    if (status === 'authed') void loadActiveProfile()
+    if (status !== 'authed') return
+    void loadActiveProfile()
+    void verifyContractCommit()
+    void connect()
+    return () => close()
   }, [status])
 
   return (

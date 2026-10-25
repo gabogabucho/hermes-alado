@@ -408,6 +408,11 @@
   font-size: var(--text-xs);
 }
 
+/* Spacer block for a Disclosure / extra group sitting after a section. */
+.advanced-block {
+  margin-bottom: var(--space-6);
+}
+
 .row {
   --row-inset: var(--space-4);
   display: flex;
@@ -462,6 +467,11 @@ button.row:active {
   color: var(--text-1);
 }
 
+.row-leading {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
 .row-icon--accent {
   background: var(--accent-soft);
   color: var(--accent-line);
@@ -506,6 +516,18 @@ button.row:active {
   white-space: nowrap;
 }
 
+/* A mono secondary line in a row (the Bóveda's env-var name). Wraps instead of
+   truncating so long names never force horizontal scroll. */
+.row-key {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  line-height: 1.3;
+}
+
 .row-value {
   color: var(--text-2);
   font-size: var(--text-sm);
@@ -520,6 +542,11 @@ button.row:active {
   display: inline-flex;
   color: var(--text-3);
   flex-shrink: 0;
+}
+
+/* Buttons inside rows keep a 44px touch target. */
+.row .btn {
+  min-height: 44px;
 }
 
 /* ── Disclosure ────────────────────────────────────────────────────────── */
@@ -679,4 +706,69 @@ button.row:active {
   font-weight: 700;
   user-select: none;
   line-height: 1;
+}
+
+/* ── Segmented control ─────────────────────────────────────────────────── */
+
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.segmented-item {
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented-item.active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.segmented-item:disabled {
+  opacity: 0.6;
+}
+
+/* ── Horizontally scrollable chip row with fade edges ─────────────────── */
+
+.chips-scroll {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: var(--space-1) var(--space-4) var(--space-2);
+  margin: 0 calc(var(--space-4) * -1);
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+}
+
+.chips-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.chips-scroll .chip {
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 10px 16px;
+}
+
+.chip-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }

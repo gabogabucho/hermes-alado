@@ -28,6 +28,7 @@ export type RowTint = 'accent' | 'ok' | 'danger' | 'warn' | 'neutral'
 /** One tappable row inside a `Section` card. */
 export function Row({
   icon,
+  leading,
   tint = 'neutral',
   title,
   subtitle,
@@ -39,6 +40,7 @@ export function Row({
   children,
 }: {
   icon?: IconName
+  leading?: ReactNode
   tint?: RowTint
   title: ReactNode
   subtitle?: ReactNode
@@ -49,14 +51,16 @@ export function Row({
   disabled?: boolean
   children?: ReactNode
 }) {
-  const hasIcon = Boolean(icon)
+  const hasIcon = Boolean(icon || leading)
   const inner = (
     <>
-      {hasIcon && (
+      {leading ? (
+        <span className="row-leading">{leading}</span>
+      ) : icon ? (
         <span className={`row-icon row-icon--${tint}`}>
-          <Icon name={icon as IconName} size={18} />
+          <Icon name={icon} size={18} />
         </span>
-      )}
+      ) : null}
       <span className="row-body">
         <span className="row-title">{title}</span>
         {subtitle && <span className="row-subtitle">{subtitle}</span>}

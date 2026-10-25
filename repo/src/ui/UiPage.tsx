@@ -22,7 +22,7 @@ const BLOB_FACES: AvatarAppearance[] = [
 ]
 const MOODS: AvatarMood[] = ['idle', 'thinking', 'working']
 const THEME_OPTIONS: { value: ThemeChoice; label: string }[] = [
-  { value: 'system', label: 'Sistema' },
+  { value: 'system', label: 'Automático' },
   { value: 'hermes', label: 'Hermes' },
   { value: 'clean', label: 'Clean' },
 ]

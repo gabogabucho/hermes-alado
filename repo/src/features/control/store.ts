@@ -51,12 +51,12 @@ export async function loadApproval(): Promise<void> {
   }
 }
 
-/** ON = pedir aprobación (manual); OFF = no pedir (off). */
-export async function saveApproval(on: boolean): Promise<void> {
+/** `approvals.mode`: manual (always ask) | smart (ask only when risky) | off (never ask). */
+export async function saveApproval(mode: ApprovalMode): Promise<void> {
   approvalSaving.set(true)
   try {
-    await setApprovalMode(on ? 'manual' : 'off', controlProfile())
-    approvalMode.set(on ? 'manual' : 'off')
+    await setApprovalMode(mode, controlProfile())
+    approvalMode.set(mode)
   } finally {
     approvalSaving.set(false)
   }

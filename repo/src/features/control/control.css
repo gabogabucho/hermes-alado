@@ -50,3 +50,38 @@
 .control-row .btn {
   min-height: 44px;
 }
+
+.control-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.segmented-item {
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented-item.active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.segmented-item:disabled {
+  opacity: 0.6;
+}

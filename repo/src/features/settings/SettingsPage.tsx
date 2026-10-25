@@ -39,9 +39,23 @@ export function SettingsPage() {
         <ListRow
           leading={<Icon name="grid" />}
           title="Conectar aplicaciones"
-          subtitle="Telegram, Discord, Slack…"
+          subtitle="Apps, herramientas, habilidades y canales"
           trailing={<Icon name="chevron-right" />}
           onClick={() => forward('/connectors')}
+        />
+        <ListRow
+          leading={<Icon name="folder" />}
+          title="Bóveda"
+          subtitle="Claves de API y credenciales"
+          trailing={<Icon name="chevron-right" />}
+          onClick={() => forward('/settings/vault')}
+        />
+        <ListRow
+          leading={<Icon name="monitor" />}
+          title="Control del agente"
+          subtitle="Aprobaciones, computer use y tareas en curso"
+          trailing={<Icon name="chevron-right" />}
+          onClick={() => forward('/settings/control')}
         />
       </div>
 

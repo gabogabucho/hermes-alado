@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@nanostores/react'
 import { useSlideNavigate } from '../../app/transition'
+import type { ApprovalMode } from '../../lib/hermes/agent-control'
 import type { LiveSessionStatus } from '../../lib/hermes/vendor/gateway-contract.generated'
 import { IconButton } from '../../ui/IconButton'
 import { Skeleton } from '../../ui/Skeleton'
@@ -43,6 +44,12 @@ const SESSION_STATUS_LABELS: Record<LiveSessionStatus, string> = {
 
 const RUNNING_STATUSES: LiveSessionStatus[] = ['starting', 'waiting', 'working', 'streaming', 'resuming']
 
+const APPROVAL_OPTIONS: { mode: ApprovalMode; label: string }[] = [
+  { mode: 'manual', label: 'Siempre' },
+  { mode: 'smart', label: 'Inteligente' },
+  { mode: 'off', label: 'Nunca' },
+]
+
 export function ControlPage() {
   const { back } = useSlideNavigate()
   const mode = useStore(approvalMode)
@@ -77,7 +84,6 @@ export function ControlPage() {
   const cuRow = ts.find(row => row.name === 'computer_use')
   const browserRow = ts.find(row => row.name === 'browser')
 
-  const approvalsOn = mode !== 'off'
   const modeHint =
     mode === 'manual'
       ? 'Siempre pide aprobación antes de una acción riesgosa.'
@@ -105,17 +111,27 @@ export function ControlPage() {
             </button>
           </div>
         ) : (
-          <div className="card control-row">
+          <div className="card control-row control-row-stack">
             <div className="spacer">
               <div className="control-row-title">Pedir aprobación para acciones riesgosas</div>
               <div className="faint">shell, MCP, computadora</div>
               <div className="control-hint">{modeHint}</div>
             </div>
-            <Toggle
-              checked={approvalsOn}
-              onChange={on => void saveApproval(on)}
-              label="Pedir aprobación para acciones riesgosas"
-            />
+            <div className="segmented" role="radiogroup" aria-label="Modo de aprobación">
+              {APPROVAL_OPTIONS.map(opt => (
+                <button
+                  key={opt.mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === opt.mode}
+                  className={mode === opt.mode ? 'segmented-item active' : 'segmented-item'}
+                  disabled={approvalPending}
+                  onClick={() => void saveApproval(opt.mode)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             {approvalPending && <span className="faint">Guardando…</span>}
           </div>
         )}

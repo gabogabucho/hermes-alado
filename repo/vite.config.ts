@@ -44,6 +44,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Hermes owns these paths (login form, OAuth callbacks, API): the SPA
+      // fallback must never answer them, or login becomes unreachable.
+      workbox: {
+        navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /^\/login/, /^\/dashboard-plugins\//],
+      },
       includeAssets: ['favicon.svg', 'icon.svg'],
       manifest: {
         name: 'DroidBot',

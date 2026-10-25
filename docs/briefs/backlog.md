@@ -9,3 +9,11 @@
 - **Group**: disband already exists inside the group menu (`GroupChatPage.tsx:256`) but is hard to find:
   add a Home row `…` menu for groups with "Eliminar grupo" (same confirm), and label the in-room action
   "Eliminar grupo" instead of "Disolver grupo" (plain language).
+
+## Preparer: `push` module (user request, 2026-10-25)
+Install the `droidbot-push` Hermes plugin from the preparer: copy `hermes-plugin/droidbot_push` to
+`<hermes home>/plugins/`, `hermes plugins enable droidbot-push` (as the hermes user), install its Python
+dependency into Hermes' Python (`<hermes>/tools/python-*/bin/python -m pip install "pywebpush>=2,<3"`)
+until the plugin is published on GitHub (then: `hermes plugins install <git-url> --yes-deps`), restart
+the Hermes user units, verify `GET /api/plugins/droidbot-push/vapid-public-key` → 401 unauthenticated
+(route mounted). Pin `pywebpush>=2,<3` in plugin.yaml.

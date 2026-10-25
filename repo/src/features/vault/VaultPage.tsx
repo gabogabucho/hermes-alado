@@ -3,6 +3,7 @@ import { useStore } from '@nanostores/react'
 import { useBack, useSlideNavigate } from '../../app/transition'
 import { isValidEnvVarName, type EnvVarInfo } from '../../lib/hermes/credentials'
 import { vaultLabel } from '../../lib/hermes/vault-labels'
+import { vaultBrandName } from './vault-brand'
 import { BrandIcon } from '../../ui/BrandIcon'
 import { Disclosure } from '../../ui/Disclosure'
 import { PageShell } from '../../ui/PageShell'
@@ -158,13 +159,17 @@ export function VaultPage() {
 
   function renderVarRow(key: string, info: EnvVarInfo) {
     const label = vaultLabel(key, info)
+    const brand = vaultBrandName(key, info)
     return (
       <Row
         key={key}
-        leading={<BrandIcon name={info.provider || info.provider_label || key} url={info.url} size={28} />}
-        title={label}
+        leading={<BrandIcon name={brand ?? info.provider_label ?? info.provider ?? key} size={28} />}
+        title={<span className="vault-title">{label}</span>}
         trailing={
-          <StatusDot tone={info.is_set ? 'ok' : 'neutral'} label={info.is_set ? 'Configurada' : 'Sin configurar'} />
+          <StatusDot
+            tone={info.is_set ? 'ok' : 'neutral'}
+            ariaLabel={info.is_set ? 'Configurada' : 'Sin configurar'}
+          />
         }
         onClick={() => forward(`/settings/vault/${encodeURIComponent(key)}`)}
       >

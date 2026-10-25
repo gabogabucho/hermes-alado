@@ -3,6 +3,7 @@ import { useStore } from '@nanostores/react'
 import { useParams } from 'react-router-dom'
 import { useBack } from '../../app/transition'
 import { vaultLabel } from '../../lib/hermes/vault-labels'
+import { vaultBrandName } from './vault-brand'
 import { BrandIcon } from '../../ui/BrandIcon'
 import { PageShell } from '../../ui/PageShell'
 import { Row, Section } from '../../ui/Section'
@@ -88,7 +89,12 @@ export function VaultKeyPage() {
         <>
           <Section>
             <Row
-              leading={<BrandIcon name={info.provider || info.provider_label || key} url={info.url} size={28} />}
+              leading={
+                <BrandIcon
+                  name={vaultBrandName(key, info) ?? info.provider_label ?? info.provider ?? key}
+                  size={28}
+                />
+              }
               title={info.description || 'Variable de entorno'}
               trailing={
                 <StatusDot tone={info.is_set ? 'ok' : 'neutral'} label={info.is_set ? 'Configurada' : 'Sin configurar'} />

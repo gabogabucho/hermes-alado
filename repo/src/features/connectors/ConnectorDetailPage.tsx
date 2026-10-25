@@ -41,7 +41,7 @@ export function ConnectorDetailPage() {
   const profile = useStore(activeProfile)
   const data = useStore(familyData)
 
-  const connector = isConnectorFamily(family) ? findConnector(id) : undefined
+  const connector = isConnectorFamily(family) ? findConnector(family, id) : undefined
 
   useEffect(() => {
     void loadActiveProfile()

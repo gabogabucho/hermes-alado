@@ -39,5 +39,12 @@ export async function loadFamilyData(family: ConnectorFamily, profile?: string):
   }
 }
 
-export const findConnector = (id: string | undefined): Connector | undefined =>
-  id === undefined ? undefined : connectors.get().find(c => c.id === id)
+/** Detail-route lookup. Connector ids collide across families (openrouter,
+ *  xai, …), so the family from the route must scope the match. */
+export const findConnector = (
+  family: string | undefined,
+  id: string | undefined,
+): Connector | undefined =>
+  family === undefined || id === undefined
+    ? undefined
+    : connectors.get().find(c => c.family === family && c.id === id)

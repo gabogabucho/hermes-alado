@@ -93,7 +93,7 @@ export function CatalogPage() {
 
   const renderRow = (c: Connector) => (
     <Row
-      key={c.id}
+      key={`${c.family}:${c.id}`}
       leading={<BrandIcon name={c.name} url={connectorUrl(c, data)} size={28} />}
       title={c.name}
       subtitle={c.description || c.category || FAMILY_LABELS[c.family]}
@@ -124,7 +124,7 @@ export function CatalogPage() {
 
   return (
     <PageShell
-      title="Conectar aplicaciones"
+      title="Conexiones"
       onBack={back}
       actions={<Badge>{activeCount} activos</Badge>}
     >

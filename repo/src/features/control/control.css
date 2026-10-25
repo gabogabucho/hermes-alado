@@ -17,3 +17,34 @@
   gap: var(--space-3);
   padding: var(--space-4);
 }
+
+/* The "Detalles técnicos" disclosure sits inside the Computadora card: its
+   trigger aligns with the row gutters (16 px inset), gets the same hairline
+   the rows do above it, and adds no extra bottom padding when closed or
+   open. The hairline inset matches the icon rows above it. */
+.section-card .advanced-block {
+  margin-bottom: 0;
+}
+
+.section-card .advanced-block .disclosure {
+  position: relative;
+  --row-inset: 60px;
+}
+
+.section-card .advanced-block .disclosure::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--row-inset);
+  right: 0;
+  height: 1px;
+  background: var(--border);
+}
+
+.section-card .advanced-block .disclosure-trigger {
+  padding: var(--space-2) var(--space-4);
+}
+
+.section-card .advanced-block .disclosure .section {
+  margin-bottom: 0;
+}

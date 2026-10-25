@@ -95,7 +95,10 @@ export function vaultLabel(key: string, info: EnvVarInfo): string {
   const mapped = KEY_LABELS[key]
   if (mapped) return mapped
 
-  if (info.provider_label) return info.provider_label
+  if (info.provider_label) {
+    const trimmed = trimCredentialSuffix(info.provider_label)
+    if (trimmed) return trimmed
+  }
 
   const clause = firstClause(info.description)
   if (clause) {

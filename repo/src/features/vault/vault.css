@@ -10,6 +10,17 @@
   min-width: 0;
 }
 
+/* The human label of a vault row may wrap to two lines and clamps beyond
+   that; the mono env-var line below it stays single-line ellipsized. */
+.vault-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+}
+
 .vault-pool {
   display: flex;
   flex-direction: column;

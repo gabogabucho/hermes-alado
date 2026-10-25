@@ -1,4 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
+import { BotProfileEditPage } from '../features/bot-profile/BotProfileEditPage'
+import { BotProfilePage } from '../features/bot-profile/BotProfilePage'
 import { ChatPage } from '../features/chat/ChatPage'
 import { CatalogPage } from '../features/connectors/CatalogPage'
 import { ConnectorDetailPage } from '../features/connectors/ConnectorDetailPage'
@@ -25,6 +27,8 @@ export function Shell() {
           <Route path="/chat/:profile" element={<ChatPage />} />
           <Route path="/group/:roomId" element={<GroupChatPage />} />
           <Route path="/groups/new" element={<NewGroupPage />} />
+          <Route path="/bots/:profile" element={<BotProfilePage />} />
+          <Route path="/bots/:profile/edit" element={<BotProfileEditPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/vault" element={<VaultPage />} />
           <Route path="/settings/vault/:key" element={<VaultKeyPage />} />

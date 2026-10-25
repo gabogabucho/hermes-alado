@@ -19,10 +19,16 @@ export function chatSessionId(): string | null {
 
 /** Open a fresh chat for a profile: `session.create` returns the live sid. */
 export async function openChat(profile: string): Promise<void> {
-  const res = await request('session.create', { profile })
-  currentSessionId = res.session_id
   messages.set([])
   thinking.set(false)
+  try {
+    const res = await request('session.create', { profile })
+    currentSessionId = res.session_id
+  } catch (err) {
+    messages.set([
+      { id: crypto.randomUUID(), role: 'assistant', text: `⚠ No se pudo abrir el chat: ${errText(err)}` },
+    ])
+  }
 }
 
 export function closeChat(): void {

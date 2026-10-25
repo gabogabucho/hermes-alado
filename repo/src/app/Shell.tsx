@@ -5,7 +5,6 @@ import { ConnectorsPage } from '../features/connectors/ConnectorsPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { BottomNav } from './BottomNav'
 import { ReconnectBanner } from './ReconnectBanner'
-import { UiPage } from '../ui/UiPage'
 
 export function Shell() {
   const location = useLocation()
@@ -21,7 +20,6 @@ export function Shell() {
           <Route path="/chat/:name" element={<ChatPage />} />
           <Route path="/connectors" element={<ConnectorsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          {import.meta.env.DEV && <Route path="/__ui" element={<UiPage />} />}
         </Routes>
       </div>
       {!isChat && <BottomNav />}

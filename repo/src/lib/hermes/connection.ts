@@ -135,12 +135,32 @@ export function close(): void {
   client.close()
 }
 
-/** Typed RPC request over the gateway. */
-export function request<M extends keyof RpcMethods>(
+const OPEN_WAIT_MS = 20_000
+
+/** Resolve once the socket is open, so callers don't race the (re)connect. */
+function whenOpen(): Promise<void> {
+  if (connectionState.get() === 'open') return Promise.resolve()
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      unsubscribe()
+      reject(new Error('Sin conexión con Hermes'))
+    }, OPEN_WAIT_MS)
+    const unsubscribe = connectionState.listen(state => {
+      if (state !== 'open') return
+      clearTimeout(timer)
+      unsubscribe()
+      resolve()
+    })
+  })
+}
+
+/** Typed RPC request over the gateway. Waits for the socket to be open first. */
+export async function request<M extends keyof RpcMethods>(
   method: M,
   params: RpcMethods[M]['params'],
   timeoutMs?: number,
 ): Promise<RpcMethods[M]['result']> {
+  await whenOpen()
   const budget = method === 'prompt.submit' ? PROMPT_SUBMIT_TIMEOUT_MS : timeoutMs
   return client.request<RpcMethods[M]['result']>(
     method,

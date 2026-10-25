@@ -6,6 +6,7 @@ import { authStatus, checkAuth } from '../features/auth/store'
 import { loadActiveProfile } from '../features/bots/store'
 import { close, connect } from '../lib/hermes/connection'
 import { verifyContractCommit } from '../lib/hermes/contract-version'
+import { UiPage } from '../ui/UiPage'
 import { Shell } from './Shell'
 
 export function App() {
@@ -22,6 +23,15 @@ export function App() {
     void connect()
     return () => close()
   }, [status])
+
+  // Dev-only design-system gallery: reviewable without logging in.
+  if (import.meta.env.DEV && window.location.pathname === '/__ui') {
+    return (
+      <div className="app-shell">
+        <UiPage />
+      </div>
+    )
+  }
 
   return (
     <BrowserRouter>

@@ -1642,7 +1642,8 @@ plugin_enabled() {
 hermes_pywebpush_ok() {
   hermes_cmd "$HERMES_PYTHON" -c 'import pywebpush, sys
 try:
-    major = int(str(getattr(pywebpush, "__version__", "0")).split(".")[0])
+    from importlib.metadata import version
+    major = int(version("pywebpush").split(".")[0])  # pywebpush has no __version__
 except Exception:
     major = 0
 sys.exit(0 if major >= 2 else 1)' >/dev/null 2>&1

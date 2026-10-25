@@ -3,6 +3,17 @@
 Mobile PWA client for the Hermes Agent backend (NousResearch/hermes-agent).
 Product plan: `../PLAN-droidbot-v2.md`. Phase briefs: `../docs/briefs/`.
 
+## Product principle (decides every trade-off)
+
+**Light. Hermes for everyday life, not for sitting down to work.** The official Hermes apps include
+everything; we are the opposite: one-hand, on-the-go, glanceable (GrokBot is the reference).
+- Default screens show only what you use daily: chats, groups, approvals, notifications, voice,
+  quick routines. Power/admin features go behind "Avanzado" or a detail screen — never in the
+  primary flow.
+- Prefer one tap and sensible defaults over options. No walls of settings, no raw technical text.
+- If a feature mainly helps someone working at a desk, it belongs in Hermes Desktop, not here.
+- Keep the PWA small and fast (lazy-load heavy, rarely used screens).
+
 ## Hard rules
 
 1. **Read the real contract before calling anything.** The source of truth is the Hermes

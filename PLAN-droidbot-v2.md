@@ -7,6 +7,13 @@
 
 ---
 
+## Principio de producto (2026-10-25)
+
+**Liviano: el Hermes del día a día, no para sentarse a laburar.** Hermes va a sacar una app oficial
+"con todo incluido"; nuestra línea es la opuesta (bandera: GrokBot). En primer plano solo lo
+cotidiano: chats, grupos, aprobaciones, notificaciones, voz y rutinas rápidas. Lo administrativo va
+detrás de "Avanzado". PWA chica y rápida.
+
 ## 0. Revisiones (2026-10-24, verificadas contra el VPS)
 
 - **Contrato:** la fuente de verdad es `.hermes-ref/` (clon de hermes-agent fijado en `bf0203a`, igual al VPS), no la instalación local. Tipos RPC: el contrato generado de Hermes (`gateway-contract.generated.ts`), vendoreado junto con el cliente oficial (`src/lib/hermes/vendor/`).

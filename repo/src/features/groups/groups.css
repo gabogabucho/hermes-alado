@@ -67,6 +67,12 @@
   gap: var(--space-3);
 }
 
+/* Center the empty-room EmptyState in the transcript area. */
+.group-messages .empty-state {
+  flex: 1;
+  justify-content: center;
+}
+
 .group-msg--user {
   display: flex;
   justify-content: flex-end;
@@ -94,6 +100,18 @@
   padding-left: 4px;
 }
 
+/* The author name as a tappable button (opens the bot profile). */
+.group-msg-author-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .group-msg-bubble {
   padding: 10px 14px;
   font-size: 0.95rem;
@@ -118,11 +136,15 @@
   word-break: break-word;
 }
 
-/* Avatar at the bottom-left of each bot message. */
+/* Avatar at the bottom-left of each bot message (tappable → profile). */
 .group-msg-avatar {
   display: inline-flex;
   flex-shrink: 0;
   margin-bottom: 2px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .group-notice {
@@ -144,32 +166,13 @@
 
 /* ── pending actions / stop ────────────────────────────────────────────── */
 
+/* Action cards reuse the chat approval card style (`.request-card`). */
+
 .group-actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-}
-
-.group-action-card {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.group-action-title {
-  font-weight: 700;
-  font-size: 0.92rem;
-}
-
-.group-action-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 
 .group-disband-confirm {
@@ -180,6 +183,12 @@
   padding: var(--space-3);
   border: 1px solid var(--danger);
   border-radius: var(--r-md);
+}
+
+.group-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 /* ── composer ──────────────────────────────────────────────────────────── */
@@ -250,77 +259,8 @@
 
 /* ── new group ─────────────────────────────────────────────────────────── */
 
-.new-group-page {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.new-group-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: calc(var(--safe-top) + var(--space-2)) var(--space-3) var(--space-2);
-}
-
-.new-group-title {
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.new-group-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: var(--space-2) var(--space-4) calc(var(--space-4) + var(--safe-bottom));
-}
-
-.new-group-counter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
-
-.new-group-picker {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
-
-.new-group-member {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  border-radius: var(--r-md);
-  color: var(--text-1);
-  font-size: inherit;
-  text-align: left;
-}
-
-.new-group-member:active {
-  background: var(--surface-2);
-}
-
-.new-group-member--selected {
-  border-color: var(--accent);
-}
-
-.new-group-member-name {
-  flex: 1;
-  min-width: 0;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* The page now lives in PageShell with a grouped member picker (Row + the
+   check circles below). */
 
 .new-group-member-check {
   display: inline-flex;

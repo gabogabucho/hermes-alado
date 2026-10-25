@@ -2,9 +2,10 @@ import './groups.css'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { useSlideNavigate } from '../../app/transition'
+import { useBack } from '../../app/transition'
 import { groupEngine, type GroupApprovalChoice, type GroupPendingAction, type RoomDriverStatus, type RoomMember } from '../../lib/hermes/groups'
 import { AvatarStack } from '../../ui/Avatar'
+import { EmptyState } from '../../ui/EmptyState'
 import { IconButton } from '../../ui/IconButton'
 import { Sheet } from '../../ui/Sheet'
 import { Skeleton } from '../../ui/Skeleton'
@@ -76,30 +77,39 @@ function GroupActionCards({
   const requester = (action: GroupPendingAction): string =>
     memberName(members.find(m => m.member_id === action.member_id)) || 'Un miembro'
 
+  // Same card style as the chat approval cards (`.request-card`).
   return (
     <div className="group-actions">
       {actions.map(action => (
-        <div className="group-action-card" key={`${action.kind}:${action.task_id}:${action.execution_generation}`}>
-          <span className="group-action-title">
-            {action.kind === 'approval' ? `${requester(action)} pide tu aprobación` : 'Una tarea quedó en un estado indeterminado'}
-          </span>
+        <div className="request-card" key={`${action.kind}:${action.task_id}:${action.execution_generation}`}>
+          <div className="request-card-head">
+            <span className="request-card-title">
+              {action.kind === 'approval' ? 'Aprobación' : 'Tarea interrumpida'}
+            </span>
+            <span className="faint">
+              {action.kind === 'approval' ? requester(action) : 'Una tarea quedó en un estado indeterminado'}
+            </span>
+          </div>
           {action.kind === 'approval' && (
-            <div className="group-action-buttons">
-              <button className="btn btn-sm btn-primary" disabled={busy || acting} onClick={() => void approve(action, 'once')}>
-                Permitir una vez
-              </button>
-              <button className="btn btn-sm" disabled={busy || acting} onClick={() => void approve(action, 'deny')}>
-                Denegar
-              </button>
-            </div>
+            <p className="request-card-desc">{requester(action)} pide tu aprobación para seguir.</p>
           )}
-          {action.kind === 'retry' && (
-            <div className="group-action-buttons">
-              <button className="btn btn-sm btn-primary" disabled={busy || acting} onClick={() => void retry(action)}>
+          <div className="request-card-actions">
+            {action.kind === 'approval' && (
+              <>
+                <button className="btn btn-primary" disabled={busy || acting} onClick={() => void approve(action, 'once')}>
+                  Permitir una vez
+                </button>
+                <button className="btn btn-danger" disabled={busy || acting} onClick={() => void approve(action, 'deny')}>
+                  Denegar
+                </button>
+              </>
+            )}
+            {action.kind === 'retry' && (
+              <button className="btn btn-primary" disabled={busy || acting} onClick={() => void retry(action)}>
                 Reintentar
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       ))}
     </div>
@@ -108,7 +118,7 @@ function GroupActionCards({
 
 export function GroupChatPage() {
   const { roomId = '' } = useParams()
-  const { back } = useSlideNavigate()
+  const back = useBack('/')
   const { room, driver, events, loading, error } = useGroupRoom(roomId || undefined)
   const available = useStore(groupsAvailable)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -155,9 +165,10 @@ export function GroupChatPage() {
         <header className="group-header">
           <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
         </header>
-        <div className="empty">
-          <p className="muted">Grupos no disponibles en este Hermes.</p>
-        </div>
+        <EmptyState
+          title="Grupos no disponibles"
+          text="El motor de grupos no está activo en este Hermes."
+        />
       </div>
     )
   }

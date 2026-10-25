@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '@nanostores/react'
-import { useSlideNavigate } from '../../app/transition'
+import { useBack, useSlideNavigate } from '../../app/transition'
 import { groupEngine } from '../../lib/hermes/groups'
 import { Avatar } from '../../ui/Avatar'
-import { IconButton } from '../../ui/IconButton'
+import { EmptyState } from '../../ui/EmptyState'
+import { Icon } from '../../ui/Icon'
+import { PageShell } from '../../ui/PageShell'
+import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
 import { ensureAppearances, useBotAppearance } from '../bots/appearance-store'
 import { homeLoading, homeProfiles } from '../home/store'
@@ -19,7 +22,8 @@ function PickAvatar({ name }: { name: string }) {
 }
 
 export function NewGroupPage() {
-  const { back, forward } = useSlideNavigate()
+  const back = useBack('/')
+  const { forward } = useSlideNavigate()
   const profiles = useStore(homeProfiles)
   const loading = useStore(homeLoading)
   const available = useStore(groupsAvailable)
@@ -86,71 +90,75 @@ export function NewGroupPage() {
   const valid = name.trim().length > 0 && selectedCount >= MIN_MEMBERS
 
   return (
-    <div className="new-group-page">
-      <header className="new-group-header">
-        <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
-        <span className="new-group-title">Nuevo grupo</span>
-      </header>
-
-      <div className="new-group-scroll">
-        {available === false ? (
-          <div className="empty">
-            <p className="muted">Grupos no disponibles en este Hermes.</p>
-          </div>
-        ) : (
-          <>
-            <input
-              className="input"
-              placeholder="Nombre del grupo"
-              value={name}
-              onChange={e => setName(e.target.value)}
-            />
-
-            <div className="new-group-counter">
-              <span className="muted">
-                Elegí entre {MIN_MEMBERS} y {MAX_MEMBERS} bots
-              </span>
-              <span className={`chip${valid ? ' ok' : ''}`}>{selectedCount}/{MAX_MEMBERS}</span>
+    <PageShell title="Nuevo grupo" onBack={back}>
+      {available === false ? (
+        <EmptyState
+          icon={<Icon name="grid" size={30} />}
+          title="Grupos no disponibles"
+          text="El motor de grupos no está activo en este Hermes."
+        />
+      ) : (
+        <>
+          <Section label="Nombre">
+            <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
+              <input
+                className="input"
+                placeholder="Nombre del grupo"
+                value={name}
+                onChange={e => setName(e.target.value)}
+              />
             </div>
+          </Section>
 
+          <Section
+            label={`Miembros · ${selectedCount}/${MAX_MEMBERS}`}
+            footer={`Elegí entre ${MIN_MEMBERS} y ${MAX_MEMBERS} bots.`}
+          >
             {loading ? (
-              <div className="new-group-picker">
-                <Skeleton variant="circle" width={44} height={44} />
-                <Skeleton variant="circle" width={44} height={44} />
-                <Skeleton variant="circle" width={44} height={44} />
+              <div style={{ padding: 'var(--space-4)' }}>
+                <Skeleton height={52} />
+                <Skeleton height={52} />
+                <Skeleton height={52} />
+              </div>
+            ) : candidates.length === 0 ? (
+              <div style={{ padding: 'var(--space-4)' }}>
+                <p className="muted">No hay bots para agregar.</p>
               </div>
             ) : (
-              <div className="new-group-picker">
-                {candidates.map(profile => (
-                  <button
+              candidates.map(profile => {
+                const on = selected.has(profile.name)
+                return (
+                  <Row
                     key={profile.name}
-                    type="button"
-                    className={`new-group-member${selected.has(profile.name) ? ' new-group-member--selected' : ''}`}
+                    leading={<PickAvatar name={profile.name} />}
+                    title={profile.display_name || profile.name}
+                    subtitle={on ? 'En el grupo' : 'Tocá para agregar'}
+                    trailing={
+                      <span
+                        className={`new-group-member-check${on ? ' new-group-member-check--on' : ''}`}
+                        aria-hidden="true"
+                      >
+                        ✓
+                      </span>
+                    }
                     onClick={() => toggle(profile.name)}
-                  >
-                    <PickAvatar name={profile.name} />
-                    <span className="new-group-member-name">{profile.display_name || profile.name}</span>
-                    <span className={`new-group-member-check${selected.has(profile.name) ? ' new-group-member-check--on' : ''}`} aria-hidden="true">
-                      ✓
-                    </span>
-                  </button>
-                ))}
-              </div>
+                  />
+                )
+              })
             )}
+          </Section>
 
-            {error && <p className="error-text">{error}</p>}
+          {error && <p className="error-text">{error}</p>}
 
-            <button
-              className="btn btn-primary btn-block"
-              style={{ marginTop: 16 }}
-              disabled={!valid || busy || loading}
-              onClick={() => void create()}
-            >
-              {busy ? 'Creando…' : 'Crear grupo'}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+          <button
+            className="btn btn-primary btn-block"
+            disabled={!valid || busy || loading}
+            onClick={() => void create()}
+          >
+            {busy ? 'Creando…' : 'Crear grupo'}
+          </button>
+        </>
+      )}
+    </PageShell>
   )
 }

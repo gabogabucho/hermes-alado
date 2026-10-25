@@ -20,7 +20,7 @@ export function editedLook(
   current: EditProfileLook,
 ): {
   shape?: string
-  color?: string
+  color?: null | string
   image?: null | string
   imageKind?: 'photo' | 'shape'
   custom?: boolean
@@ -28,7 +28,7 @@ export function editedLook(
 } | null {
   const patch: {
     shape?: string
-    color?: string
+    color?: null | string
     image?: null | string
     imageKind?: 'photo' | 'shape'
     custom?: boolean
@@ -40,7 +40,11 @@ export function editedLook(
   }
 
   if (current.color !== opened.color) {
-    patch.color = current.color ?? undefined
+    // The desktop drops `undefined` from its JSON payload, so "Igualar al
+    // nombre" (color → null) never reaches the gateway and the stale color
+    // survives. Send null EXPLICITLY — the ui_meta merge stores it and
+    // `botAppearance` falls back to the name's hue, which is the point.
+    patch.color = current.color
   }
 
   if (current.image !== opened.image) {

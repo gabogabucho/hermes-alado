@@ -38,11 +38,13 @@ beforeEach(() => {
 })
 
 describe('roster cache', () => {
-  it('round-trips rows with a savedAt stamp', () => {
+  it('round-trips rows with a savedAt stamp, never storing message previews', () => {
     writeRosterCache([row])
     const cached = readRosterCache()
     expect(cached).not.toBeNull()
-    expect(cached!.rows).toEqual([row])
+    const { preview: _preview, ...session } = row.canonical_session!
+    expect(cached!.rows).toEqual([{ ...row, canonical_session: session }])
+    expect(JSON.stringify(cached)).not.toContain('hola')
     expect(typeof cached!.savedAt).toBe('number')
   })
 

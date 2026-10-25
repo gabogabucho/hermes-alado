@@ -640,8 +640,8 @@ resolve_access() {
   return 0
 }
 
-hermes_cli_exists() {
-  hermes_cmd command -v hermes >/dev/null 2>&1
+hermes_cli_exists() { # `command` is a shell builtin: runuser needs a shell to run it
+  hermes_cmd sh -c 'command -v hermes' >/dev/null 2>&1
 }
 
 # Read-only: prints the resolved config value ("" when unset/absent).
@@ -1914,9 +1914,21 @@ soul_file_for() {
 # recognized shape — callers then refuse to overwrite the config.
 parse_list_entries() {
   LIST_ENTRIES=()
-  local raw=$1 part
-  [[ $raw == *$'\n'* ]] && return 1
+  local raw=$1 part line
   raw=${raw//$'\r'/}
+  # `hermes config get` prints lists as a YAML block ("  - /path" per line).
+  if [[ $raw =~ ^[[:space:]]*-[[:space:]] ]]; then
+    while IFS= read -r line; do
+      [[ -z ${line//[[:space:]]/} ]] && continue
+      [[ $line =~ ^[[:space:]]*-[[:space:]]+(.*)$ ]] || return 1
+      part=${BASH_REMATCH[1]}
+      part=${part%%[[:space:]]}
+      part=${part#\"}; part=${part%\"}; part=${part#\'}; part=${part%\'}
+      LIST_ENTRIES+=("$part")
+    done <<< "$raw"
+    return 0
+  fi
+  [[ $raw == *$'\n'* ]] && return 1
   [[ -z $raw ]] && return 0
   if [[ $raw == "["*"]" ]]; then
     raw=${raw#\[}

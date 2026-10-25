@@ -1,0 +1,46 @@
+/* Programando (kanban active workers) — feature-scoped styles. */
+
+.working-count {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0 0 var(--space-3);
+}
+
+.worker-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--surface-1);
+  border-radius: var(--r-md);
+}
+
+.worker-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.worker-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worker-elapsed {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.worker-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

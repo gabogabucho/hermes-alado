@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { useSlideNavigate } from '../../app/transition'
+import { useBack } from '../../app/transition'
 import { apiFetch } from '../../lib/api'
 import { saveProfileAvatarAsset, saveProfileMeta } from '../../lib/hermes/profile-edit'
 import { Avatar } from '../../ui/Avatar'
-import { IconButton } from '../../ui/IconButton'
+import { EmptyState } from '../../ui/EmptyState'
+import { PageShell } from '../../ui/PageShell'
+import { Row, Section } from '../../ui/Section'
+import { Sheet } from '../../ui/Sheet'
 import { Skeleton } from '../../ui/Skeleton'
-import { ensureAppearances, useBotAppearance } from '../bots/appearance-store'
+import { ensureAppearances, invalidateBotAppearance, useBotAppearance } from '../bots/appearance-store'
 import { homeProfiles, loadHome } from '../home/store'
 import { AvatarPicker } from './avatar-picker'
 import { editedLook, type EditProfileLook } from './edit-profile-look'
@@ -40,15 +43,16 @@ function providerModels(provider: ModelOptionProvider | undefined): string[] {
 }
 
 /**
- * Edit Profile: appearance (avatar picker), title, description, SOUL and
- * model — the mobile mirror of the desktop's Edit Profile dialog.
+ * Edit Profile: appearance (avatar picker in a Sheet), title, description,
+ * SOUL and model — the mobile mirror of the desktop's Edit Profile dialog,
+ * laid out as the Phase 1d grouped form sections.
  * Look fields save like the desktop: `profiles.configure` with a
  * `ui_meta['hermes-bots']` patch + CAS (`editedLook`), photo via
  * `profiles.set_asset`. Description/soul/model ride the REST profile routes.
  */
 export function BotProfileEditPage() {
   const { profile = 'default' } = useParams()
-  const { back } = useSlideNavigate()
+  const back = useBack(`/bots/${encodeURIComponent(profile)}`)
   const rows = useStore(homeProfiles)
   const appearance = useBotAppearance(profile)
 
@@ -62,6 +66,7 @@ export function BotProfileEditPage() {
   const [image, setImage] = useState<null | string>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const [soul, setSoul] = useState('')
   const [soulLoaded, setSoulLoaded] = useState(false)
@@ -208,6 +213,10 @@ export function BotProfileEditPage() {
         })
       }
 
+      // Drop the cached photo BEFORE the refresh so the new look (or its
+      // absence) re-pulls and shows everywhere immediately.
+      invalidateBotAppearance(profile)
+
       // Refresh the profiles.list-driven stores (rows + appearances + photos).
       await loadHome()
 
@@ -222,132 +231,117 @@ export function BotProfileEditPage() {
   }
 
   return (
-    <div className="bp-page">
-      <header className="page-header glass">
-        <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
-        <h1 className="page-header-title">Editar</h1>
-      </header>
-
+    <PageShell title="Editar" onBack={back}>
       {!row ? (
-        <div className="empty">
-          <p className="muted">No se encontró este bot.</p>
-        </div>
+        <EmptyState title="No se encontró este bot" />
       ) : (
         <>
-          <div className="bp-preview-row">
-            <Avatar name={profile} size="lg" appearance={appearance} />
-            <div className="bp-preview-id">
-              <div className="bp-preview-name">{botDisplayName(row, profile)}</div>
-              <div className="faint">@{profile}</div>
+          <Section label="Identidad">
+            <div className="bp-form">
+              <div className="bp-field">
+                <label className="label-mono">Nombre</label>
+                <input
+                  className="input"
+                  placeholder={botDisplayName(row, profile)}
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                />
+              </div>
+              <div className="bp-field">
+                <label className="label-mono">Descripción</label>
+                <textarea
+                  className="input bp-textarea"
+                  placeholder="Qué hace este bot"
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
+          </Section>
 
-          <AvatarPicker
-            name={profile}
-            shape={shape}
-            color={color}
-            image={image}
-            onShape={s => {
-              handleImage(null)
-              setShape(s)
-            }}
-            onColor={c => {
-              handleImage(null)
-              setColor(c)
-            }}
-            onImage={handleImage}
-          />
+          <Section label="Personalidad / SOUL">
+            <div className="bp-form">
+              {soulError ? (
+                <p className="error-text">No se pudo cargar el SOUL.</p>
+              ) : soulLoaded ? (
+                <textarea
+                  className="input bp-textarea bp-textarea-mono"
+                  value={soul}
+                  onChange={e => setSoul(e.target.value)}
+                />
+              ) : (
+                <Skeleton height={96} />
+              )}
+            </div>
+          </Section>
 
-          <div className="bp-field">
-            <label className="label-mono">Nombre</label>
-            <input
-              className="input"
-              placeholder={botDisplayName(row, profile)}
-              value={title}
-              onChange={e => setTitle(e.target.value)}
+          <Section label="Modelo">
+            <div className="bp-form">
+              {optionsError ? (
+                <p className="error-text">No se pudieron cargar los modelos.</p>
+              ) : optionsLoaded ? (
+                <>
+                  <select
+                    className="input bp-select"
+                    value={provider}
+                    onChange={e => {
+                      setProvider(e.target.value)
+                      setModel('')
+                    }}
+                  >
+                    {!provider ? <option value="">—</option> : null}
+                    {provider && !options.some(p => p.slug === provider) ? (
+                      <option value={provider}>Actual: {provider}</option>
+                    ) : null}
+                    {options.map(p => (
+                      <option key={p.slug} value={p.slug}>
+                        {p.name ?? p.slug}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="input bp-select"
+                    value={model}
+                    disabled={modelOptions.length === 0}
+                    onChange={e => setModel(e.target.value)}
+                  >
+                    {!model ? <option value="">Elegí un modelo</option> : null}
+                    {model && !modelOptions.includes(model) ? (
+                      <option value={model}>Actual: {model}</option>
+                    ) : null}
+                    {modelOptions.map(m => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="bp-hint">
+                    Solo se guarda si elegís proveedor y modelo; el bot actual sigue igual hasta
+                    entonces.
+                  </p>
+                </>
+              ) : (
+                <Skeleton height={44} />
+              )}
+            </div>
+          </Section>
+
+          <Section label="Avatar">
+            <Row
+              leading={<Avatar name={profile} size="md" appearance={appearance} />}
+              title="Figura y color"
+              subtitle="Cambiar forma, color o foto"
+              chevron
+              onClick={() => setPickerOpen(true)}
             />
-          </div>
-
-          <div className="bp-field">
-            <label className="label-mono">Descripción</label>
-            <textarea
-              className="input bp-textarea"
-              placeholder="Qué hace este bot"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-            />
-          </div>
-
-          <div className="bp-field">
-            <label className="label-mono">SOUL</label>
-            {soulError ? (
-              <p className="error-text">No se pudo cargar el SOUL.</p>
-            ) : soulLoaded ? (
-              <textarea
-                className="input bp-textarea bp-textarea-mono"
-                value={soul}
-                onChange={e => setSoul(e.target.value)}
-              />
-            ) : (
-              <Skeleton height={96} />
-            )}
-          </div>
-
-          <div className="bp-field">
-            <label className="label-mono">Modelo</label>
-            {optionsError ? (
-              <p className="error-text">No se pudieron cargar los modelos.</p>
-            ) : optionsLoaded ? (
-              <>
-                <select
-                  className="input bp-select"
-                  value={provider}
-                  onChange={e => {
-                    setProvider(e.target.value)
-                    setModel('')
-                  }}
-                >
-                  {!provider ? <option value="">—</option> : null}
-                  {provider && !options.some(p => p.slug === provider) ? (
-                    <option value={provider}>Actual: {provider}</option>
-                  ) : null}
-                  {options.map(p => (
-                    <option key={p.slug} value={p.slug}>
-                      {p.name ?? p.slug}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="input bp-select"
-                  value={model}
-                  disabled={modelOptions.length === 0}
-                  onChange={e => setModel(e.target.value)}
-                >
-                  {!model ? <option value="">Elegí un modelo</option> : null}
-                  {model && !modelOptions.includes(model) ? (
-                    <option value={model}>Actual: {model}</option>
-                  ) : null}
-                  {modelOptions.map(m => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <p className="bp-hint">
-                  Solo se guarda si elegís proveedor y modelo; el bot actual sigue igual hasta
-                  entonces.
-                </p>
-              </>
-            ) : (
-              <Skeleton height={44} />
-            )}
-          </div>
+          </Section>
 
           {notice ? <p className="error-text">{notice}</p> : null}
 
           <button
             type="button"
             className="btn btn-primary btn-block"
+            style={{ marginTop: 'var(--space-3)' }}
             disabled={saving}
             onClick={() => void onSave()}
           >
@@ -355,6 +349,24 @@ export function BotProfileEditPage() {
           </button>
         </>
       )}
-    </div>
+
+      <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} title="Avatar">
+        <AvatarPicker
+          name={profile}
+          shape={shape}
+          color={color}
+          image={image}
+          onShape={s => {
+            handleImage(null)
+            setShape(s)
+          }}
+          onColor={c => {
+            handleImage(null)
+            setColor(c)
+          }}
+          onImage={handleImage}
+        />
+      </Sheet>
+    </PageShell>
   )
 }

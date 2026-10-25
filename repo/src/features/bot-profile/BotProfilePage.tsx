@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { useSlideNavigate } from '../../app/transition'
+import { useBack, useSlideNavigate } from '../../app/transition'
 import { Avatar } from '../../ui/Avatar'
-import { Icon } from '../../ui/Icon'
-import { IconButton } from '../../ui/IconButton'
-import { ListRow } from '../../ui/ListRow'
+import { EmptyState } from '../../ui/EmptyState'
+import { PageShell } from '../../ui/PageShell'
+import { Row, Section } from '../../ui/Section'
 import { Sheet } from '../../ui/Sheet'
 import { Skeleton } from '../../ui/Skeleton'
+import { StatusDot, type DotTone } from '../../ui/StatusDot'
 import { Toggle } from '../../ui/Toggle'
 import { ensureAppearances, useBotAppearance } from '../bots/appearance-store'
 import { homeLoading, homeProfiles } from '../home/store'
@@ -22,13 +23,14 @@ import {
 import './bot-profile.css'
 
 /**
- * Bot profile (GrokBot screen 6): big avatar + name + model/description, the
- * Editar button, and the rows: Programando, Rutinas, Biblioteca, Computadora
- * and the Notificaciones toggle.
+ * Bot profile (GrokBot screen 6): halo hero + Editar, and one grouped
+ * section of icon-tile rows — Programando, Rutinas, Biblioteca, Computadora
+ * (status dot) and the Notificaciones toggle.
  */
 export function BotProfilePage() {
   const { profile = 'default' } = useParams()
-  const { back, forward } = useSlideNavigate()
+  const back = useBack('/')
+  const { forward } = useSlideNavigate()
   const rows = useStore(homeProfiles)
   const rosterLoading = useStore(homeLoading)
   const statsLoading = useStore(profileStatsLoading)
@@ -50,17 +52,13 @@ export function BotProfilePage() {
 
   const workersLabel = workers === null ? '—' : `${workers} trabajando`
   const routinesLabel = routines === null ? '—' : `${routines} activadas`
+  const computerTone: DotTone = computer === 'active' ? 'ok' : 'neutral'
   const computerLabel = computer === 'active' ? 'Activo' : computer === 'inactive' ? 'Inactivo' : '—'
 
   const enc = encodeURIComponent(profile)
 
   return (
-    <div className="bp-page">
-      <header className="page-header glass">
-        <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
-        <h1 className="page-header-title">{displayName}</h1>
-      </header>
-
+    <PageShell title={displayName} onBack={back}>
       {rosterLoading && !row ? (
         <div className="bp-hero">
           <Skeleton variant="circle" width={112} height={112} />
@@ -68,68 +66,72 @@ export function BotProfilePage() {
           <Skeleton width={240} />
         </div>
       ) : !row ? (
-        <div className="empty">
-          <p className="muted">No se encontró este bot.</p>
-        </div>
+        <EmptyState title="No se encontró este bot" />
       ) : (
         <>
           <div className="bp-hero">
+            <span className="bp-hero-halo" aria-hidden="true" />
             <Avatar name={profile} size="xl" ring appearance={appearance} />
             <span className="bp-name">{displayName}</span>
             <span className="bp-sub">{model || description || 'Bot'}</span>
             <button
               type="button"
-              className="btn bp-edit"
+              className="btn btn-tonal bp-edit"
               onClick={() => forward(`/bots/${enc}/edit`)}
             >
               Editar
             </button>
           </div>
 
-          <div className="list">
+          <Section>
             {statsLoading ? (
-              <>
-                <Skeleton width="100%" height={56} />
-                <Skeleton width="100%" height={56} />
-              </>
+              <div style={{ padding: 'var(--space-4)' }}>
+                <Skeleton height={52} />
+                <Skeleton height={52} />
+              </div>
             ) : (
               <>
-                <ListRow
-                  leading={<Icon name="bolt" />}
+                <Row
+                  icon="bolt"
+                  tint="accent"
                   title="Programando"
-                  subtitle={workersLabel}
-                  trailing={<Icon name="chevron-right" />}
+                  value={workersLabel}
+                  chevron
                   onClick={() => forward(`/bots/${enc}/working`)}
                 />
-                <ListRow
-                  leading={<Icon name="calendar" />}
+                <Row
+                  icon="calendar"
+                  tint="accent"
                   title="Rutinas"
-                  subtitle={routinesLabel}
-                  trailing={<Icon name="chevron-right" />}
+                  value={routinesLabel}
+                  chevron
                   onClick={() => forward(`/bots/${enc}/routines`)}
                 />
               </>
             )}
-            <ListRow
-              leading={<Icon name="folder" />}
+            <Row
+              icon="folder"
+              tint="accent"
               title="Biblioteca"
-              trailing={<Icon name="chevron-right" />}
+              chevron
               onClick={() => forward(`/bots/${enc}/library`)}
             />
-            <ListRow
-              leading={<Icon name="monitor" />}
+            <Row
+              icon="monitor"
+              tint="accent"
               title="Computadora"
-              subtitle={computerLabel}
-              trailing={<Icon name="chevron-right" />}
+              subtitle={<StatusDot tone={computerTone} label={computerLabel} />}
+              chevron
               onClick={() => forward('/settings/control')}
             />
-            <ListRow
-              leading={<Icon name="bell" />}
+            <Row
+              icon="bell"
+              tint="accent"
               title="Notificaciones"
               subtitle="Cuando este bot termine o te esté esperando"
               trailing={<Toggle checked={false} onChange={() => setNotifOpen(true)} label="Notificaciones" />}
             />
-          </div>
+          </Section>
         </>
       )}
 
@@ -139,6 +141,6 @@ export function BotProfilePage() {
           ntfy o por Telegram (a decidir). Por ahora no guarda nada.
         </p>
       </Sheet>
-    </div>
+    </PageShell>
   )
 }

@@ -257,7 +257,6 @@ export function HomePage() {
             {featured && (
               <button className="home-hero" onClick={() => openBot(featured)}>
                 <span className="backdrop-texture" aria-hidden="true" />
-                <span className="home-hero-halo" aria-hidden="true" />
                 <BotAvatar name={featured.name} size="xl" mood={featured.working ? 'working' : 'idle'} />
                 <span className="home-hero-name">{featured.displayName}</span>
                 <span className="home-hero-badge">Principal</span>

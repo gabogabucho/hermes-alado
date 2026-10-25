@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@nanostores/react'
-import { useBack } from '../../app/transition'
+import { useBack, useSlideNavigate } from '../../app/transition'
+import {
+  loadProbes,
+  probeSummary,
+  probeSummaryLabel,
+} from '../health/store'
 import type { ApprovalMode } from '../../lib/hermes/agent-control'
 import type { LiveSessionStatus } from '../../lib/hermes/vendor/gateway-contract.generated'
 import { Disclosure } from '../../ui/Disclosure'
@@ -59,6 +64,8 @@ function checkTone(status: string): DotTone {
 
 export function ControlPage() {
   const back = useBack('/settings')
+  const { forward } = useSlideNavigate()
+  const healthTone = useStore(probeSummary)
   const mode = useStore(approvalMode)
   const approvalBusy = useStore(approvalLoading)
   const approvalFail = useStore(approvalError)
@@ -82,6 +89,7 @@ export function ControlPage() {
 
   useEffect(() => {
     void loadControl()
+    void loadProbes()
   }, [])
 
   const running = useMemo(
@@ -139,6 +147,17 @@ export function ControlPage() {
             {approvalPending && <span className="faint">Guardando…</span>}
           </div>
         )}
+      </Section>
+
+      <Section label="Sistema">
+        <Row
+          icon="bolt"
+          tint="accent"
+          title="Salud del sistema"
+          subtitle={<StatusDot tone={healthTone} label={probeSummaryLabel(healthTone)} />}
+          chevron
+          onClick={() => forward('/settings/health')}
+        />
       </Section>
 
       <Section label="Computadora">

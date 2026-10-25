@@ -7,6 +7,7 @@ import { ConnectorDetailPage } from '../features/connectors/ConnectorDetailPage'
 import { ControlPage } from '../features/control/ControlPage'
 import { GroupChatPage } from '../features/groups/GroupChatPage'
 import { NewGroupPage } from '../features/groups/NewGroupPage'
+import { HealthPage } from '../features/health/HealthPage'
 import { HomePage } from '../features/home/HomePage'
 import { LibraryPage } from '../features/library/LibraryPage'
 import { RoutineDetailPage } from '../features/routines/RoutineDetailPage'
@@ -33,6 +34,7 @@ export function Shell() {
           <Route path="/settings/vault" element={<VaultPage />} />
           <Route path="/settings/vault/:key" element={<VaultKeyPage />} />
           <Route path="/settings/control" element={<ControlPage />} />
+          <Route path="/settings/health" element={<HealthPage />} />
           <Route path="/connectors" element={<CatalogPage />} />
           <Route path="/connectors/:family/:id" element={<ConnectorDetailPage />} />
           <Route path="/bots/:profile/routines" element={<RoutinesPage />} />

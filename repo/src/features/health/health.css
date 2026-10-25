@@ -1,0 +1,79 @@
+/* Salud del sistema — feature-local styles (semantic tokens only). */
+
+.health-fix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.health-fix-title {
+  font-weight: 600;
+}
+
+.health-fix-finding {
+  color: var(--text-2);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.health-fix .btn {
+  align-self: flex-start;
+  margin-top: var(--space-1);
+}
+
+.health-progress {
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-1);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.health-cmd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.health-cmd-label {
+  color: var(--text-3);
+  font-size: 0.72rem;
+}
+
+.health-cmd-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.health-cmd-code {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-1);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--space-2) var(--space-3);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.health-cmd-row .btn {
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.health-raw {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+}

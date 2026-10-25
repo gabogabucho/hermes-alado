@@ -5,7 +5,9 @@
 // bottom-left; user messages sit right; terminal/notice events render as
 // centered notes with their detail (error/reason/reason_code).
 import type { RoomActor, RoomEvent, RoomMember } from '../../lib/hermes/groups'
+import { useSlideNavigate } from '../../app/transition'
 import { Avatar } from '../../ui/Avatar'
+import { EmptyState } from '../../ui/EmptyState'
 import { useBotAppearance } from '../bots/appearance-store'
 import { GroupMarkdown } from './group-markdown'
 import { memberName, memberProfile, rosterById } from './members'
@@ -65,6 +67,7 @@ function NoticeRow({ event, notice }: { event: RoomEvent; notice: string }) {
 }
 
 function MessageRow({ event, members }: { event: RoomEvent; members: RoomMember[] }) {
+  const { forward } = useSlideNavigate()
   const roster = rosterById(members)
   const author = eventAuthor(event, roster)
   const text = typeof event.payload.text === 'string' ? event.payload.text : ''
@@ -80,17 +83,43 @@ function MessageRow({ event, members }: { event: RoomEvent; members: RoomMember[
   const member = event.actor?.id ? roster.get(event.actor.id) : undefined
   const profile = member ? memberProfile(member) : author
 
+  // Tapping a member's name/avatar opens that bot's profile.
+  const identity =
+    profile && member ? (
+      <button
+        type="button"
+        className="group-msg-author-btn"
+        onClick={() => forward(`/bots/${encodeURIComponent(profile)}`)}
+      >
+        <span className="group-msg-author">{author}</span>
+      </button>
+    ) : (
+      <span className="group-msg-author">{author}</span>
+    )
+  const face =
+    profile && member ? (
+      <button
+        type="button"
+        className="group-msg-avatar"
+        aria-label={`Ver perfil de ${author}`}
+        onClick={() => forward(`/bots/${encodeURIComponent(profile)}`)}
+      >
+        <MemberAvatar name={profile} />
+      </button>
+    ) : (
+      <span className="group-msg-avatar">
+        <MemberAvatar name={profile} />
+      </span>
+    )
+
   return (
     <div className="group-msg group-msg--member">
-      <div className="group-msg-body">
-        <span className="group-msg-author">{author}</span>
+      <div className="group-msg-body">{identity}
         <div className="group-msg-bubble group-msg-bubble--member">
           <GroupMarkdown text={text} />
         </div>
       </div>
-      <span className="group-msg-avatar">
-        <MemberAvatar name={profile} />
-      </span>
+      {face}
     </div>
   )
 }
@@ -99,9 +128,10 @@ export function GroupMessages({ events, members }: { events: RoomEvent[]; member
   return (
     <div className="group-messages" role="log">
       {events.length === 0 ? (
-        <div className="empty">
-          <p className="muted">Todavía no hay mensajes. Escribí el primero.</p>
-        </div>
+        <EmptyState
+          title="Todavía no hay mensajes"
+          text="Escribí el primero para que el grupo arranque a trabajar."
+        />
       ) : (
         events.map(event => {
           const notice = noticeFor(event)

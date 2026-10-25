@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { useBack } from '../../app/transition'
+import { useBack, useSlideNavigate } from '../../app/transition'
 import { Avatar } from '../../ui/Avatar'
 import { IconButton } from '../../ui/IconButton'
-import { Sheet } from '../../ui/Sheet'
 import { useBotAppearance, ensureAppearances } from '../bots/appearance-store'
 import { homeBots } from '../home/store'
 import { Composer } from './Composer'
@@ -26,13 +25,13 @@ import {
 export function ChatPage() {
   const { profile = 'default' } = useParams()
   const back = useBack('/')
+  const { forward } = useSlideNavigate()
   const list = useStore(items)
   const isRunning = useStore(running)
   const cards = useStore(requests)
   const meta = useStore(chatMeta)
   const bots = useStore(homeBots)
   const error = useStore(openError)
-  const [sheetOpen, setSheetOpen] = useState(false)
 
   const bot = bots.find(b => b.name === profile)
   const appearance = useBotAppearance(profile)
@@ -54,7 +53,10 @@ export function ChatPage() {
     <div className="chat-page">
       <header className="chat-header glass">
         <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
-        <button className="chat-header-identity" onClick={() => setSheetOpen(true)}>
+        <button
+          className="chat-header-identity"
+          onClick={() => forward(`/bots/${encodeURIComponent(profile)}`)}
+        >
           <Avatar name={profile} size="sm" mood={isRunning ? 'thinking' : 'idle'} appearance={appearance} />
           <span className="chat-title">{meta.displayName || profile}</span>
         </button>
@@ -91,17 +93,6 @@ export function ChatPage() {
       />
 
       <Composer />
-
-      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={meta.displayName || profile}>
-        <div className="row">
-          <Avatar name={profile} size="lg" appearance={appearance} />
-          <div>
-            <div className="sheet-name">{meta.displayName || profile}</div>
-            {bot?.model && <div className="faint">{bot.model}</div>}
-          </div>
-        </div>
-        {bot?.description && <p className="muted" style={{ marginTop: 12 }}>{bot.description}</p>}
-      </Sheet>
     </div>
   )
 }

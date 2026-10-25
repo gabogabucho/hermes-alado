@@ -30,59 +30,6 @@
   font-weight: 700;
 }
 
-.file-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  min-height: 56px;
-  padding: var(--space-3);
-  border: none;
-  background: var(--surface-1);
-  border-radius: var(--r-md);
-  color: var(--text-1);
-  font-family: inherit;
-  font-size: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.file-row:active {
-  background: var(--surface-2);
-}
-
-.file-row-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  border-radius: var(--r-sm);
-  background: var(--surface-2);
-  color: var(--text-2);
-}
-
-.file-row-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.file-row-name {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-row-meta {
-  color: var(--text-2);
-  font-size: 0.8rem;
-}
-
 /* Vista previa */
 
 .preview-sheet {

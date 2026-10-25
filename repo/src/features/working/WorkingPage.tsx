@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { IconButton } from '../../ui/IconButton'
+import { useBack } from '../../app/transition'
+import { EmptyState } from '../../ui/EmptyState'
+import { Icon } from '../../ui/Icon'
+import { PageShell } from '../../ui/PageShell'
+import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
 import { loadActiveWorkers, workers, workersAbsent, workersCount, workersError, workersLoading } from './store'
-import './index.css'
 
 const REFRESH_MS = 10_000
 
@@ -30,7 +33,7 @@ function useNow(tick: boolean): number {
 
 export function WorkingPage() {
   const { profile = 'default' } = useParams()
-  const navigate = useNavigate()
+  const back = useBack('/')
   const list = useStore(workers)
   const count = useStore(workersCount)
   const loading = useStore(workersLoading)
@@ -67,14 +70,7 @@ export function WorkingPage() {
   }, [profile])
 
   return (
-    <div>
-      <div className="subpage-header">
-        <IconButton icon="back" label="Volver" onClick={() => navigate(-1)} />
-        <span className="subpage-title">Programando</span>
-      </div>
-
-      <p className="working-count">{loading ? '…' : `${count} trabajando`}</p>
-
+    <PageShell title="Programando" onBack={back}>
       {loading && list.length === 0 && (
         <div className="list">
           {[0, 1].map(i => (
@@ -92,39 +88,38 @@ export function WorkingPage() {
       )}
 
       {!loading && absent && (
-        <div className="empty">
-          <p className="muted">El plugin de kanban no está disponible en este backend.</p>
-          <p className="faint">Sin él, no hay trabajos activos que mostrar.</p>
-        </div>
+        <EmptyState
+          icon={<Icon name="monitor" size={30} />}
+          title="Nada en curso"
+          text="El plugin de kanban no está disponible en este backend."
+        />
       )}
 
       {!loading && !error && !absent && list.length === 0 && (
-        <div className="empty">
-          <p className="muted">Nadie está trabajando ahora.</p>
-          <p className="faint">Cuando un bot arranque una tarea, aparece acá.</p>
-        </div>
+        <EmptyState
+          icon={<Icon name="monitor" size={30} />}
+          title="Nada en curso"
+          text="Cuando un bot arranque una tarea, aparece acá."
+        />
       )}
 
       {list.length > 0 && (
-        <div className="list">
+        <Section label={`${loading ? '…' : count} trabajando`}>
           {list.map(worker => {
             const elapsed = Math.max(0, (now - worker.started_at * 1000) / 1000)
             return (
-              <div key={worker.run_id} className="worker-card">
-                <div className="worker-card-head">
-                  <span className="worker-title">{worker.task_title || worker.task_id}</span>
-                  <span className="worker-elapsed">{formatElapsed(elapsed)}</span>
-                </div>
-                <div className="worker-meta">
-                  <span className="chip">
-                    {worker.task_assignee || worker.profile || 'sin bot asignado'}
-                  </span>
-                </div>
-              </div>
+              <Row
+                key={worker.run_id}
+                icon="bolt"
+                tint="accent"
+                title={worker.task_title || worker.task_id}
+                subtitle={worker.task_assignee || worker.profile || 'sin bot asignado'}
+                value={formatElapsed(elapsed)}
+              />
             )
           })}
-        </div>
+        </Section>
       )}
-    </div>
+    </PageShell>
   )
 }

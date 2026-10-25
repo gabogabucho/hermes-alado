@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
+import { useBack } from '../../app/transition'
+import { EmptyState } from '../../ui/EmptyState'
+import { Icon } from '../../ui/Icon'
 import { IconButton } from '../../ui/IconButton'
+import { PageShell } from '../../ui/PageShell'
+import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
 import { FileTypeIcon } from './FileTypeIcon'
 import { FilePreviewSheet } from './FilePreviewSheet'
@@ -11,7 +15,7 @@ import type { ManagedEntry } from './types'
 import './index.css'
 
 export function LibraryPage() {
-  const navigate = useNavigate()
+  const back = useBack('/')
   const current = useStore(listing)
   const loading = useStore(libraryLoading)
   const error = useStore(libraryError)
@@ -53,39 +57,37 @@ export function LibraryPage() {
   const isLoading = loading || (uploading && !loading)
 
   return (
-    <div>
-      <div className="subpage-header">
-        <IconButton icon="back" label="Volver" onClick={() => navigate(-1)} />
-        <span className="subpage-title">Biblioteca</span>
-        <span className="spacer" />
+    <PageShell
+      title="Biblioteca"
+      onBack={back}
+      actions={
         <IconButton
           icon="paperclip"
+          variant="glass"
           label="Subir archivo"
           disabled={uploading}
           onClick={() => fileInput.current?.click()}
         />
-        <input
-          ref={fileInput}
-          type="file"
-          hidden
-          onChange={e => void onUpload(e.target.files?.[0])}
-        />
-      </div>
+      }
+    >
+      <input ref={fileInput} type="file" hidden onChange={e => void onUpload(e.target.files?.[0])} />
 
-      <div className="breadcrumbs">
-        {crumbs.map((crumb, i) => (
-          <span key={i} className="breadcrumb">
-            {i > 0 && <span className="faint"> / </span>}
-            <button
-              type="button"
-              className={`breadcrumb-link${i === crumbs.length - 1 ? ' breadcrumb-link--current' : ''}`}
-              onClick={() => void loadFolder(crumb.path)}
-            >
-              {crumb.label}
-            </button>
-          </span>
-        ))}
-      </div>
+      {crumbs.length > 1 && (
+        <div className="breadcrumbs">
+          {crumbs.map((crumb, i) => (
+            <span key={i} className="breadcrumb">
+              {i > 0 && <span className="faint"> / </span>}
+              <button
+                type="button"
+                className={`breadcrumb-link${i === crumbs.length - 1 ? ' breadcrumb-link--current' : ''}`}
+                onClick={() => void loadFolder(crumb.path)}
+              >
+                {crumb.label}
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {uploadError && <p className="error-text">{uploadError}</p>}
 
@@ -106,38 +108,38 @@ export function LibraryPage() {
       )}
 
       {!isLoading && !error && current && current.entries.length === 0 && (
-        <div className="empty">
-          <p className="muted">Carpeta vacía.</p>
-        </div>
+        <EmptyState
+          icon={<Icon name="folder" size={30} />}
+          title="Carpeta vacía"
+          text="Subí un archivo para que el bot pueda leerlo."
+          actionLabel="Subir archivo"
+          onAction={() => fileInput.current?.click()}
+        />
       )}
 
       {!isLoading && !error && current && current.entries.length > 0 && (
-        <div className="list">
+        <Section>
           {current.entries.map(entry => (
-            <button
+            <Row
               key={entry.path}
-              type="button"
-              className="file-row"
-              onClick={() => onOpenEntry(entry)}
-            >
-              <span className="file-row-icon">
-                <FileTypeIcon kind={fileKind(entry)} />
-              </span>
-              <span className="file-row-body">
-                <span className="file-row-name">{entry.name}</span>
-                <span className="file-row-meta">
-                  {entry.is_directory ? 'Carpeta' : formatSize(entry.size)}
-                  {entry.mtime !== null && entry.mtime !== undefined && (
-                    <> · {formatModified(entry.mtime)}</>
-                  )}
+              leading={
+                <span className="row-icon row-icon--neutral">
+                  <FileTypeIcon kind={fileKind(entry)} size={18} />
                 </span>
-              </span>
-            </button>
+              }
+              title={entry.name}
+              subtitle={
+                entry.is_directory
+                  ? 'Carpeta'
+                  : `${formatSize(entry.size)}${entry.mtime !== null && entry.mtime !== undefined ? ` · ${formatModified(entry.mtime)}` : ''}`
+              }
+              onClick={() => onOpenEntry(entry)}
+            />
           ))}
-        </div>
+        </Section>
       )}
 
       <FilePreviewSheet entry={preview} onClose={() => setPreview(null)} />
-    </div>
+    </PageShell>
   )
 }

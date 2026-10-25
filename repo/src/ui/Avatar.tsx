@@ -109,6 +109,7 @@ export function Avatar({
   color,
   ring = false,
   badge = false,
+  image,
 }: {
   name: string
   size?: AvatarSize | number
@@ -117,6 +118,7 @@ export function Avatar({
   color?: string
   ring?: boolean
   badge?: boolean
+  image?: string | null
 }) {
   const px = typeof size === 'number' ? size : SIZES[size]
   const bodyShape = shape ?? defaultShape(name)
@@ -181,6 +183,20 @@ export function Avatar({
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [mood])
+
+  if (image) {
+    return (
+      <span className="avatar" style={{ width: px, height: px }}>
+        {ring && <span className="avatar-ring" style={{ width: px, height: px }} />}
+        <img className="avatar-image" src={image} alt="" width={px} height={px} />
+        {badge && (
+          <svg className="avatar-badge" width={px * 0.42} height={px * 0.42} viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2.5l2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" fill="var(--bot-accent)" />
+          </svg>
+        )}
+      </span>
+    )
+  }
 
   return (
     <span className="avatar" style={{ width: px, height: px }}>

@@ -46,8 +46,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icon.svg'],
       manifest: {
-        name: 'Hermes',
-        short_name: 'Hermes',
+        name: 'DroidBot',
+        short_name: 'DroidBot',
         description: 'Tu agente Hermes en el bolsillo',
         theme_color: '#17120c',
         background_color: '#17120c',

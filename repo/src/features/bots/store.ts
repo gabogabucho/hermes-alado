@@ -5,7 +5,6 @@ import type { Profile } from '../../lib/types'
 export const profiles = atom<Profile[]>([])
 export const profilesLoading = atom<boolean>(false)
 export const profilesError = atom<string>('')
-export const activeProfile = atom<string>('default')
 
 export async function loadProfiles(): Promise<void> {
   profilesLoading.set(true)
@@ -18,23 +17,6 @@ export async function loadProfiles(): Promise<void> {
   } finally {
     profilesLoading.set(false)
   }
-}
-
-export async function loadActiveProfile(): Promise<void> {
-  try {
-    const res = await apiFetch<{ active: string; current: string }>('/api/profiles/active')
-    activeProfile.set(res.active || 'default')
-  } catch {
-    // non-fatal: default to "default"
-  }
-}
-
-export async function setActiveProfile(name: string): Promise<void> {
-  await apiFetch('/api/profiles/active', {
-    method: 'POST',
-    body: JSON.stringify({ name }),
-  })
-  activeProfile.set(name)
 }
 
 export async function createProfile(name: string, description?: string): Promise<void> {

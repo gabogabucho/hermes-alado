@@ -881,17 +881,17 @@ button {
 
 /* ── avatars with images ──────────────────────────────────────────────── */
 
-.avatar-image {
-  border-radius: var(--r-full);
-  object-fit: cover;
-  display: block;
-}
-
 .avatar-ring {
   position: absolute;
   inset: 0;
   border-radius: var(--r-full);
   border: 2.5px solid var(--bot-accent);
+}
+
+.avatar-ring-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .btn-sm {

@@ -193,6 +193,13 @@
   flex-shrink: 0;
 }
 
+/* The math-face SVG (BotFace) — overflow visible so the animated body and
+   working dots may lean outside the viewBox without clipping. */
+.bot-face {
+  display: block;
+  overflow: visible;
+}
+
 .avatar-badge {
   position: absolute;
   top: -6%;

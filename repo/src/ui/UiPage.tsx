@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useStore } from '@nanostores/react'
 import { setTheme, theme, type ThemeChoice } from '../features/settings/store'
-import { Avatar, AvatarStack, type AvatarMood, type AvatarShape } from './Avatar'
+import { Avatar, AvatarStack, type AvatarMood } from './Avatar'
+import type { AvatarAppearance } from './avatar/appearance'
 import { Icon, type IconName } from './Icon'
 import { IconButton } from './IconButton'
 import { ListRow } from './ListRow'
@@ -10,8 +11,16 @@ import { Sheet } from './Sheet'
 import { Skeleton } from './Skeleton'
 import { Toggle } from './Toggle'
 
-const SHAPES: AvatarShape[] = ['blob', 'drop', 'bean', 'square', 'ghost', 'star']
-const MOODS: AvatarMood[] = ['idle', 'thinking', 'happy', 'sleeping']
+const SHAPES = ['circle', 'squircle', 'pill', 'triangle', 'hexagon', 'cloud', 'drop']
+const SOLIDS = ['tetrahedron', 'cube', 'octahedron', 'dodecahedron', 'icosahedron']
+const SIGILS = ['sigil-1', 'sigil-2', 'sigil-3']
+const BLOB_FACES: AvatarAppearance[] = [
+  { shape: 'blobatar:alpha:round', color: null, image: null },
+  { shape: 'blobatar:beta:cloud', color: null, image: null },
+  { shape: 'blobatar:gamma:triangle', color: null, image: null },
+  { shape: 'blobatar:delta:droplet', color: null, image: null },
+]
+const MOODS: AvatarMood[] = ['idle', 'thinking', 'working']
 const THEME_OPTIONS: { value: ThemeChoice; label: string }[] = [
   { value: 'system', label: 'Sistema' },
   { value: 'hermes', label: 'Hermes' },
@@ -22,6 +31,11 @@ const ICONS: IconName[] = [
   'chevron-right', 'check', 'arrow-down', 'paperclip', 'close', 'bolt',
   'calendar', 'folder', 'monitor', 'bell',
 ]
+
+// 1×1 dark-gray PNG — a stand-in uploaded photo (renders with the desktop's
+// 22% radius + cover crop).
+const PHOTO =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg=='
 
 export function UiPage() {
   const [on, setOn] = useState(false)
@@ -89,7 +103,7 @@ export function UiPage() {
       </section>
 
       <section className="ui-section">
-        <h2>Avatar — formas × estados</h2>
+        <h2>Avatar — formas × estados (desktop)</h2>
         {SHAPES.map(shape => (
           <div key={shape} className="ui-grid" style={{ marginBottom: 8 }}>
             {MOODS.map(mood => (
@@ -98,6 +112,36 @@ export function UiPage() {
             <Avatar name={shape} shape={shape} ring badge />
           </div>
         ))}
+      </section>
+
+      <section className="ui-section">
+        <h2>Avatar — sólidos platónicos y sigils</h2>
+        <div className="ui-grid">
+          {SOLIDS.map(s => (
+            <Avatar key={s} name={s} shape={s} />
+          ))}
+          {SIGILS.map(s => (
+            <Avatar key={s} name={`sigil-bot-${s}`} shape={s} />
+          ))}
+        </div>
+      </section>
+
+      <section className="ui-section">
+        <h2>Avatar — blobatar (nombre → cara)</h2>
+        <div className="ui-grid">
+          {BLOB_FACES.map(a => (
+            <Avatar key={a.shape} name={a.shape} appearance={a} />
+          ))}
+          <Avatar name="blob-default" appearance={{ shape: 'blobatar', color: null, image: null }} />
+        </div>
+      </section>
+
+      <section className="ui-section">
+        <h2>Avatar — foto (subida)</h2>
+        <div className="ui-grid">
+          <Avatar name="foto" appearance={{ shape: 'circle', color: null, image: PHOTO }} />
+          <Avatar name="foto" appearance={{ shape: 'circle', color: null, image: PHOTO }} ring badge />
+        </div>
       </section>
 
       <section className="ui-section">

@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
     "@nanostores/react": "^2.0.1",
+    "blobatar": "2.0.0",
     "nanostores": "^1.5.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

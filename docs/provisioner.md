@@ -2,7 +2,9 @@
 
 `provisioner/prepare.sh` leaves an Ubuntu/Debian VPS ready to serve the DroidBot PWA against
 Hermes: "set up basic Hermes → run one script → open the PWA → Hermes works from your phone".
-The script is reviewed and run by the architect (never from the dev machine; AGENTS.md rule 9).
+That includes the `droidbot-push` Hermes plugin, so the phone also gets push notifications when
+a bot finishes a turn or waits for you. The script is reviewed and run by the architect (never
+from the dev machine; AGENTS.md rule 9).
 
 Hermes source of truth: the `.hermes-ref` checkout pinned to `bf0203a`. The script assumes the
 reference VPS state: Ubuntu 24.04, Hermes installed for the `hermes` user
@@ -24,6 +26,10 @@ sudo bash prepare.sh droidbot --dist https://<url>/dist.tar.gz
 sudo bash prepare.sh --all --access sslip      # https://<public-ip>.sslip.io via Caddy
 sudo bash prepare.sh --all --access tailscale  # https://<machine>.<tailnet>.ts.net
 
+# push notifications (droidbot-push Hermes plugin):
+sudo bash prepare.sh push                                  # hermes-plugin/droidbot_push next to the script
+sudo bash prepare.sh push --plugin-src ./hermes-plugin/droidbot_push
+
 # diagnostics (changes nothing):
 sudo bash prepare.sh --check                 # exit 0 = all OK, 1 = problems
 sudo bash prepare.sh --check --json          # schema below (consumed by the PWA "Health" screen)
@@ -44,12 +50,13 @@ command (`[manual] ...`).
 |------|--------|
 | `--check` | Diagnostics only. Exit 0 = OK, 1 = `fail`/`unknown` in some module. Never writes. |
 | `--json` | Emit the diagnostics as JSON (requires `--check`). |
-| `--all` | Apply the five modules. |
+| `--all` | Apply the six modules. |
 | `--dry-run` | Print the commands it would run; verifies nothing that mutates state. |
 | `--hermes-user <user>` | Owner of `~/.hermes`. Default: auto-detects via `/home/*/.hermes` (if unique) and falls back to `hermes`. |
 | `--domain <host>` | Public domain (access/caddy site blocks + verifications). |
 | `--access <mode>` | `sslip` or `tailscale`. Ignored when `--domain` is given. Interactive prompt when stdin is a TTY; defaults to `sslip`. |
 | `--dist <path\|url>` | PWA tar.gz for `droidbot`. |
+| `--plugin-src <path>` | `droidbot-push` plugin source folder for `push` (default: `hermes-plugin/droidbot_push` next to the script). |
 
 ## Modules and system changes
 
@@ -201,6 +208,49 @@ operator must set `dashboard.public_url` to the ts.net URL. The script warns acc
   writes the sha256 marker. The previous version always stays in `/var/www/droidbot.prev`.
 - **Verifies**: `index.html` + `sw.js` present.
 
+### 6. push — the droidbot-push Hermes plugin (web push)
+
+Installs the `droidbot-push` plugin (repo folder `hermes-plugin/droidbot_push`): phone push when
+a bot **finishes a turn** (`on_session_end`, cron included) or **waits for you**
+(`pre_approval_request`, `on_human_input_request`, `on_room_member_activity` with
+`kind=request.opened`). Per-bot toggles live in the PWA; the REST surface is
+`/api/plugins/droidbot-push/{vapid-public-key,subscribe,prefs,test}` with the dashboard session
+auth inherited.
+
+The module (as root; the plugin copy is chown'ed to the hermes user because the default source
+may sit under `/root`, unreadable by hermes):
+
+1. **Validates the source** from `--plugin-src` (default: the `hermes-plugin/droidbot_push`
+   folder next to the script): requires `plugin.yaml` with `name: droidbot-push` and
+   `__init__.py`. Missing/invalid → `fail` with the manual steps.
+2. **Copies** it to `~/.hermes/plugins/droidbot_push` (stage → swap, so a failed copy never
+   leaves a half plugin). Idempotent: every source file is sha256-compared against the installed
+   copy; identical → "already up to date" (runtime files like `__pycache__` are ignored).
+   Plugin state (VAPID key, subscriptions, prefs) lives in `plugin-data/`, never inside the
+   plugin folder, so re-copies lose nothing.
+3. **Installs the Python dependency** `pywebpush>=2,<3` (pinned in `plugin.yaml`
+   `python_dependencies`, which the PM resolver honors) into Hermes' PM-managed Python
+   (`~/.hermes/tools/python-*/bin/python` — the interpreter `hermes serve`/`gateway` run with):
+   `<python> -m pip install "pywebpush>=2,<3"` as the hermes user, only when the import/version
+   check fails. **Temporary path** until the plugin is published on GitHub; then this step
+   becomes `hermes plugins install <git-url> --yes-deps --enable`.
+4. **Enables it** with `hermes plugins enable droidbot-push` as the hermes user (idempotent:
+   Hermes reports "already enabled"). The plugin declares no capabilities, so there is no
+   interactive consent prompt; if the PM admission refuses (e.g. resolver conflict), the exact
+   commands are printed as `[manual]`.
+5. **Prints the restart command** (never restarts Hermes — it interrupts sessions): the plugin
+   hooks and its dashboard routes load at process start, so `hermes-serve.service` and
+   `hermes-gateway.service` (user units) must be restarted for the install to take effect.
+6. **Verifies** the route is mounted with an unauthenticated probe:
+   `curl http://127.0.0.1:9119/api/plugins/droidbot-push/vapid-public-key`. `401` = mounted with
+   the auth gate active (the expected result on the VPS), `200` = mounted without an auth gate,
+   `503` = mounted but the plugin has not initialized its VAPID key yet. Anything else (or
+   connection refused) → `warn` "restart Hermes" when the install itself is complete.
+
+In `--check` mode nothing is touched: it reports `unknown` when the plugin is not installed,
+`fail` when installed-but-disabled or `pywebpush` is missing from Hermes' Python, and `warn`
+when everything is in place but the routes are not mounted yet (restart pending).
+
 ## Idempotency and verification
 
 | Mechanism | Where |
@@ -209,13 +259,16 @@ operator must set `dashboard.public_url` to the ts.net URL. The script warns acc
 | Caddyfile: marked blocks (`# BEGIN/END droidbot-preparer:*`); re-upsert replaces the existing block (literal `index()` match for v1 markers, anchored regex for access sites); full-site replace sweeps stale sslip hosts after an IP change | caddy, access, cleanup |
 | Legacy cleanup: every removal is guarded by existence checks; re-runs are no-ops | botdesktop |
 | PWA: sha256 marker; identical redeploy = no-op | droidbot |
+| Plugin: per-file sha256 compare against the installed copy; pip install only when the import/version check fails; `hermes plugins enable` is idempotent | push |
 | `hermes config set` only writes when the value differs; `--check` only reads (`config get`) | access |
 | `--check` never writes (guards in `upsert_marked_block`/`replace_whole_site_block`; cleanup reports only) | global |
 | Real verification after acting; exact `[manual]` on failure | all modules |
 
 Per-module verification: `ldd` 0 "not found" + `--dump-dom` (browser); every `REQUIRED_BINARIES`
 on PATH (botdesktop); site block present + `dashboard.public_url` + auth check + local probe
-(access); `caddy validate` + real headers (caddy); `index.html`+`sw.js`+sha (droidbot).
+(access); `caddy validate` + real headers (caddy); `index.html`+`sw.js`+sha (droidbot); plugin
+installed + enabled + `pywebpush` importable + unauth probe of `/api/plugins/droidbot-push/
+vapid-public-key` → 401 (push).
 
 ## JSON schema of `--check --json`
 
@@ -225,7 +278,7 @@ on PATH (botdesktop); site block present + `dashboard.public_url` + auth check +
 ```json
 {
   "schema": 2,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "mode": "check",
   "ok": true,
   "generated_at": "2026-10-25T00:00:00Z",
@@ -292,6 +345,16 @@ on PATH (botdesktop); site block present + `dashboard.public_url` + auth check +
       "installed": true,
       "dist_sha256": "ab12...",
       "up_to_date": true
+    },
+    "push": {
+      "status": "ok",
+      "installed": true,
+      "enabled": true,
+      "source": null,
+      "python": "/home/hermes/.hermes/tools/python-3.14.9+20261021-linux-x64/bin/python3",
+      "pywebpush_ok": true,
+      "route_mounted": true,
+      "probe": "401"
     }
   }
 }
@@ -308,9 +371,13 @@ on PATH (botdesktop); site block present + `dashboard.public_url` + auth check +
 - `browser.dump_dom_err` appears only on failure (first 300 chars of Chrome's stderr).
 - `botdesktop.legacy_removed`: artifacts removed by `cleanup-legacy` (in `--check`, the count
   of artifacts pending cleanup).
+- `push.probe`: the HTTP code of the unauthenticated `vapid-public-key` GET (`401` expected with
+  the auth gate, `200` without one, `503` when the plugin has not initialized its VAPID key);
+  `null` when Hermes is unreachable or the probe was skipped. `push.source` is the resolved
+  `--plugin-src` in apply mode and `null` in `--check`.
 - Nullable everywhere: `chrome`, `cua_driver`, `dist_sha256`, `up_to_date`,
   `ldd_not_found`/`dump_dom`, `caddy_version`, `sw_cache_header`/`assets_cache_header`,
-  `probe_root`, access fields.
+  `probe_root`, access fields, `push.python`/`push.probe`/`push.source`.
 - `hermes.units` may be `[]` (no units detected).
 
 ## System changes (summary)
@@ -327,16 +394,20 @@ on PATH (botdesktop); site block present + `dashboard.public_url` + auth check +
   `dashboard.public_url` — then a restart of `hermes serve`/`gateway` is printed, never run.
 - `/var/www/droidbot` (PWA), `/var/www/droidbot.prev`, `/var/lib/droidbot/dist.sha256`.
 - Tailscale: `tailscale serve --bg --yes --https=443` (persists in tailscaled; nothing else).
+- `~/.hermes/plugins/droidbot_push` (the plugin, hermes-owned) and
+  `~/.hermes/tools/python-*/lib/.../site-packages` (pywebpush pip-installed into Hermes'
+  PM-managed Python); `hermes plugins enable droidbot-push` writes `plugins.enabled` and syncs
+  the PM environment. The Hermes restart is printed, never run.
 
 Nothing else inside `~/.hermes/` is touched; no Hermes file is edited.
 
 ## Risks and open questions
 
-- **Restart of the Hermes units**: `dashboard.public_url` and the removed DISPLAY drop-ins are
-  snapshots read at process start, so both changes only take effect after restarting
-  `hermes-serve.service`/`hermes-gateway.service`. The script never restarts Hermes (it
-  interrupts sessions); it prints the exact command. Decision for the architect: restart now or
-  in a maintenance window.
+- **Restart of the Hermes units**: `dashboard.public_url`, the removed DISPLAY drop-ins and the
+  enabled plugin (hooks + dashboard routes) are snapshots read at process start, so all three
+  changes only take effect after restarting `hermes-serve.service`/`hermes-gateway.service`.
+  The script never restarts Hermes (it interrupts sessions); it prints the exact command.
+  Decision for the architect: restart now or in a maintenance window.
 - **Fail-closed restart without an auth provider**: with a declared non-loopback public host
   and no provider (basic_auth/OAuth), `hermes serve` refuses to start
   (`hermes_cli/web_server.py:958-962`). The access module checks and warns, but configuring
@@ -359,6 +430,17 @@ Nothing else inside `~/.hermes/` is touched; no Hermes file is edited.
 - **Tailscale without Caddy**: falls back to Hermes directly (Hermes' own web UI, not the PWA).
 - **browser verify**: `--no-sandbox` is used only for the `--dump-dom` check (Ubuntu 24.04
   AppArmor restricts user namespaces); agent-browser uses its own sandbox policy.
+- **push install path is temporary**: until `droidbot-push` is published on GitHub, the preparer
+  copies the folder and pip-installs `pywebpush>=2,<3` into Hermes' PM-managed Python (validated
+  on the VPS during phase 8). Once published, this step should become
+  `hermes plugins install <git-url> --yes-deps --enable` so the PM owns the dependency
+  (Hermes' `doctor` may keep warning about the pip-installed dep until then).
+- **push enable admission**: `hermes plugins enable` syncs the PM environment and may refuse
+  non-interactively (e.g. a resolver conflict); the module then prints the exact commands as
+  `[manual]`. The plugin declares no capabilities, so no interactive consent prompt is expected.
+- **push probe semantics**: `401` means the auth gate is engaged (expected on the VPS); `200`
+  means Hermes is reachable without a gate; a not-yet-restarted server yields `404`/refused →
+  the module reports `warn` with the restart hint.
 - **Ports 8081** (tailscale catch-all): fixed. If there is a conflict on the VPS, edit the
   constant in the script.
 

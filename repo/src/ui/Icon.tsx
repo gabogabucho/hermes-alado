@@ -27,6 +27,7 @@ export type IconName =
   | 'trash'
   | 'keyboard'
   | 'power'
+  | 'info'
 
 // 24px grid, 1.75 stroke, currentColor.
 const PATHS: Record<IconName, ReactElement> = {
@@ -127,6 +128,12 @@ const PATHS: Record<IconName, ReactElement> = {
     <>
       <path d="M12 3v8" />
       <path d="M6.3 6.8a8 8 0 1 0 11.4 0" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 16v-4M12 8h.01" />
     </>
   ),
 }

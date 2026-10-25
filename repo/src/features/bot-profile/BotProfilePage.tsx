@@ -22,6 +22,7 @@ import {
   loadHome,
   setFeaturedBot,
 } from '../home/store'
+import { loadPrefs, pushPrefs, pushSetup, savePrefsForProfile, defaultPrefs } from '../push/store'
 import {
   botDisplayName,
   loadProfileStats,
@@ -53,12 +54,19 @@ export function BotProfilePage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const allPrefs = useStore(pushPrefs)
+  const prefs = { ...defaultPrefs(), ...(allPrefs[profile] ?? {}) }
+  const deviceSetup = useStore(pushSetup)
 
   useEffect(() => {
     ensureAppearances()
     void loadProfileStats(profile)
     void loadComputer(profile)
   }, [profile])
+
+  useEffect(() => {
+    if (notifOpen) void loadPrefs()
+  }, [notifOpen])
 
   const row = rows.find(r => r.name === profile)
   const displayName = botDisplayName(row, profile)
@@ -171,7 +179,7 @@ export function BotProfilePage() {
               tint="accent"
               title="Notificaciones"
               subtitle="Cuando este bot termine o te esté esperando"
-              trailing={<Toggle checked={false} onChange={() => setNotifOpen(true)} label="Notificaciones" />}
+              trailing={<Toggle checked={prefs.termina} onChange={() => setNotifOpen(true)} label="Notificaciones" />}
             />
           </Section>
 
@@ -189,10 +197,45 @@ export function BotProfilePage() {
       )}
 
       <Sheet open={notifOpen} onClose={() => setNotifOpen(false)} title="Notificaciones">
-        <p className="muted">
-          Hermes todavía no tiene Web Push. Cuando esta opción esté lista, va a avisarte por
-          ntfy o por Telegram (a decidir). Por ahora no guarda nada.
-        </p>
+        {deviceSetup?.state === 'no-plugin' ? (
+          <p className="muted">
+            Las notificaciones requieren el complemento del servidor (droidbot-push en Hermes). Tu
+            arquitecto puede instalarlo con el preparer.
+          </p>
+        ) : (
+          <>
+            <Row
+              icon="check"
+              tint="accent"
+              title="Cuando termine"
+              subtitle="Aviso cuando este bot termina un turno"
+              trailing={
+                <Toggle
+                  checked={prefs.termina}
+                  onChange={next => void savePrefsForProfile(profile, { termina: next }).catch(() => undefined)}
+                  label="Cuando termine"
+                />
+              }
+            />
+            <Row
+              icon="bolt"
+              tint="accent"
+              title="Cuando te necesite"
+              subtitle="Aprobaciones, preguntas o grupos que te esperan"
+              trailing={
+                <Toggle
+                  checked={prefs.necesita}
+                  onChange={next => void savePrefsForProfile(profile, { necesita: next }).catch(() => undefined)}
+                  label="Cuando te necesite"
+                />
+              }
+            />
+            <p className="faint" style={{ padding: '0 var(--space-4) var(--space-4)' }}>
+              Activá el master switch en Ajustes → Notificaciones para recibir avisos en este
+              dispositivo.
+            </p>
+          </>
+        )}
       </Sheet>
 
       {deleteOpen && (

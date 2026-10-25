@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '@nanostores/react'
 import { APP_NAME } from '../../app/brand'
 import { useBack, useSlideNavigate } from '../../app/transition'
@@ -12,6 +12,16 @@ import {
 import { Disclosure } from '../../ui/Disclosure'
 import { PageShell } from '../../ui/PageShell'
 import { Row, Section } from '../../ui/Section'
+import { Toggle } from '../../ui/Toggle'
+import {
+  pushBusy,
+  pushError,
+  pushSetup,
+  pushTested,
+  refreshPushStatus,
+  setMasterEnabled,
+  testPush,
+} from '../push/store'
 import { checkAuth, user } from '../auth/store'
 import { backendUrl, setTheme, theme, updateBackendUrl, type ThemeChoice } from './store'
 
@@ -27,11 +37,19 @@ export function SettingsPage() {
   const url = useStore(backendUrl)
   const me = useStore(user)
   const currentTheme = useStore(theme)
+  const setup = useStore(pushSetup)
+  const busy = useStore(pushBusy)
+  const error = useStore(pushError)
+  const tested = useStore(pushTested)
   const [draft, setDraft] = useState(url)
   const [saved, setSaved] = useState(false)
   const [installOpen, setInstallOpen] = useState(false)
 
   const showInstallRow = !isStandalone() && installablePlatform()
+
+  useEffect(() => {
+    void refreshPushStatus()
+  }, [])
 
   async function onSave() {
     updateBackendUrl(draft)
@@ -42,6 +60,22 @@ export function SettingsPage() {
 
   const displayName = me?.display_name ?? me?.email ?? 'Hermes'
   const email = me?.email ?? me?.provider
+
+  const pushOn = setup?.state === 'on'
+  const notifSubtitle = (() => {
+    switch (setup?.state) {
+      case 'unsupported':
+        return 'Este navegador no soporta notificaciones push'
+      case 'ios-install':
+        return 'Instalá la app para recibir notificaciones'
+      case 'no-plugin':
+        return 'Las notificaciones requieren el complemento del servidor'
+      case 'permission-denied':
+        return 'Permiso denegado: habilitá las notificaciones en el navegador'
+      default:
+        return 'Avisos cuando un bot termine o te esté esperando'
+    }
+  })()
 
   return (
     <PageShell title="Ajustes" onBack={back}>
@@ -84,6 +118,35 @@ export function SettingsPage() {
           chevron
           onClick={() => forward('/settings/control')}
         />
+      </Section>
+
+      <Section label="Notificaciones">
+        <Row
+          icon="bell"
+          tint="accent"
+          title="Notificaciones"
+          subtitle={notifSubtitle}
+          trailing={
+            <Toggle
+              checked={pushOn}
+              onChange={next => void setMasterEnabled(next)}
+              label="Notificaciones de este dispositivo"
+            />
+          }
+        />
+        {error && (
+          <Row icon="info" tint="warn" title={error} subtitle="Revisá el complemento en el servidor de Hermes." />
+        )}
+        {pushOn && (
+          <Row
+            icon="send"
+            tint="accent"
+            title={tested ? 'Prueba enviada ✓' : 'Probar'}
+            subtitle="Envía una notificación de prueba a este dispositivo"
+            disabled={busy}
+            onClick={() => void testPush()}
+          />
+        )}
       </Section>
 
       <Section label="Apariencia">

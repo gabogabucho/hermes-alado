@@ -32,6 +32,14 @@ const ICONS: IconName[] = [
   'calendar', 'folder', 'monitor', 'bell',
 ]
 
+// Wordmark candidates (all SIL OFL 1.1). Bodoni Moda is the default — the
+// sharpest, most condensed of the three, closest to the desktop's Collapse.
+const WORDMARK_CANDIDATES: { name: string; family: string; note: string }[] = [
+  { name: 'Bodoni Moda 700', family: "'Bodoni Moda', serif", note: 'default · OFL 1.1' },
+  { name: 'Playfair Display 700', family: "'Playfair Display', serif", note: 'OFL 1.1' },
+  { name: 'DM Serif Display 400', family: "'DM Serif Display', serif", note: 'OFL 1.1' },
+]
+
 // 1×1 dark-gray PNG — a stand-in uploaded photo (renders with the desktop's
 // 22% radius + cover crop).
 const PHOTO =
@@ -58,6 +66,43 @@ export function UiPage() {
               {opt.label}
             </button>
           ))}
+        </div>
+      </section>
+
+      <section className="ui-section">
+        <h2>Wordmark — candidatos (elegir uno)</h2>
+        <div className="list">
+          {WORDMARK_CANDIDATES.map(c => (
+            <div key={c.name} className="card">
+              <span className="label-mono">
+                {c.name} · {c.note}
+              </span>
+              <p className="wordmark" style={{ fontFamily: c.family, fontSize: '2.6rem' }}>
+                HERMES AGENT
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="ui-section">
+        <h2>Tipografía de estado</h2>
+        <div className="ui-grid">
+          <span className="label-mono">SESSIONS · BOTS</span>
+          <span className="connect-glyphs">CONNECT</span>
+        </div>
+      </section>
+
+      <section className="ui-section">
+        <h2>Textura de fondo</h2>
+        <div
+          className="card"
+          style={{ position: 'relative', isolation: 'isolate', overflow: 'hidden', padding: '32px 14px', textAlign: 'center' }}
+        >
+          <span className="backdrop-texture" aria-hidden="true" />
+          <span className="wordmark" style={{ fontSize: '2rem' }}>
+            HERMES
+          </span>
         </div>
       </section>
 

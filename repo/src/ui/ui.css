@@ -249,3 +249,77 @@
     background-position: -200% 0;
   }
 }
+
+/* ── Hermes signature surfaces ────────────────────────────────────────── */
+
+/* Small uppercase mono label with wide tracking (section headers, status
+   text, topbar labels, tool rows) — the desktop's quiet chrome type. */
+.label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+/* The oversized display wordmark of an empty surface (desktop's Collapse
+   treatment: uppercase, bold, tight line-height, wide tracking, fluid). */
+.wordmark {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: clamp(2.4rem, 11vw, 4.2rem);
+  color: var(--text-1);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* Monospace CONNECT status text with a cycling glyph tail
+   (+-- → -+- → --+ → block), like the desktop's connecting overlay. */
+.connect-glyphs {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.connect-glyphs::after {
+  content: '+--';
+  display: inline-block;
+  width: 2.6em;
+  animation: connect-spin 1s steps(1, end) infinite;
+}
+
+@keyframes connect-spin {
+  0% {
+    content: '+--';
+  }
+  25% {
+    content: '-+-';
+  }
+  50% {
+    content: '--+';
+  }
+  75% {
+    content: '█';
+  }
+}
+
+/* Subtle dim grayscale noise/etching behind empty states and the home hero.
+   A tiny inline feTurbulence tile (no images, no copyrighted art); opacity is
+   a per-theme token so clean stays toned down. */
+.backdrop-texture {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+  opacity: var(--texture-opacity, 0.05);
+}

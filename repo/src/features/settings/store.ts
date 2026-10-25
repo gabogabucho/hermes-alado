@@ -23,7 +23,7 @@ function applyTheme(choice: ThemeChoice): void {
   const resolved = resolve(choice)
   document.documentElement.setAttribute('data-theme', resolved)
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.setAttribute('content', resolved === 'hermes' ? '#17120c' : '#f2f2f4')
+  if (meta) meta.setAttribute('content', resolved === 'hermes' ? '#0d1117' : '#ffffff')
 }
 
 export const backendUrl = atom<string>(getBackendUrl())

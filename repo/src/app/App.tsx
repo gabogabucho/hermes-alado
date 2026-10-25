@@ -36,7 +36,9 @@ export function App() {
       <div className="app-shell">
         {status === 'checking' ? (
           <div className="app-main centered">
-            <p className="muted">Conectando con Hermes…</p>
+            <span className="connect-glyphs" role="status" aria-label="Conectando con Hermes">
+              CONNECT
+            </span>
           </div>
         ) : status === 'authed' ? (
           <Shell />

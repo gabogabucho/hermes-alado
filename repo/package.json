@@ -11,6 +11,10 @@
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource/bodoni-moda": "^5.3.0",
+    "@fontsource/dm-serif-display": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/playfair-display": "^5.3.0",
     "@nanostores/react": "^2.0.1",
     "blobatar": "2.0.0",
     "nanostores": "^1.5.5",

@@ -46,7 +46,7 @@ export function SettingsPage() {
       </div>
 
       <div className="card" style={{ marginBottom: 14 }}>
-        <label className="faint">Tema</label>
+        <label className="label-mono">Tema</label>
         <div className="row" style={{ marginTop: 6, gap: 8 }}>
           {THEME_OPTIONS.map(opt => (
             <button
@@ -62,7 +62,7 @@ export function SettingsPage() {
       </div>
 
       <div className="card" style={{ marginBottom: 14 }}>
-        <label className="faint">URL del backend de Hermes</label>
+        <label className="label-mono">URL del backend de Hermes</label>
         <input
           className="input"
           style={{ marginTop: 6 }}

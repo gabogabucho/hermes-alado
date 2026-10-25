@@ -2,47 +2,60 @@
  * Semantic design tokens. A theme is just a token set on <html data-theme="…">.
  * Dark (hermes) is the :root default so a dark-mode user never sees a light
  * flash before the inline bootstrap script in index.html resolves the choice.
+ *
+ * Palettes are mapped from Hermes Desktop's `nous` preset
+ * (.hermes-ref/apps/shared/src/theme-presets.ts, pinned bf0203a):
+ *   hermes (dark) = nous darkColors  — GitHub Dark Default chrome, Nous blue
+ *   clean  (light) = nous light      — GitHub Light Default neutrals, ink accent
+ * Anything not a 1:1 slot (glass, surface-3, text-3, ok) is derived from the
+ * same VS Code theme family the nous preset was converted from; see the report
+ * in docs/briefs/phase-1c-skin.md notes.
  */
 :root {
   color-scheme: dark;
 
-  /* hermes (warm near-black + gold) */
-  --bg: #17120c;
-  --surface-1: #1f1710;
-  --surface-2: #2a2015;
-  --surface-3: #33271a;
-  --glass: rgba(42, 32, 21, 0.72);
-  --glass-border: rgba(61, 48, 32, 0.6);
-  --text-1: #f3ecdf;
-  --text-2: #a8947a;
-  --text-3: #6d5f4d;
-  --accent: #e0b34c;
-  --on-accent: #1a1206;
+  /* hermes — nous dark palette */
+  --bg: #0d1117; /* background */
+  --surface-1: #161b22; /* popover — raised rows, inputs, sheets */
+  --surface-2: #1a1e24; /* muted — cards */
+  --surface-3: #21262d; /* derived: next rung of the GitHub-dark ladder */
+  --glass: rgba(22, 27, 34, 0.72); /* popover-based */
+  --glass-border: rgba(48, 54, 61, 0.6); /* border-based */
+  --text-1: #e6edf3; /* foreground */
+  --text-2: #7d8590; /* mutedForeground */
+  --text-3: #848d97; /* derived: GitHub dark fg.muted */
+  --accent: #4a84fe; /* primary */
+  --on-accent: #161616; /* primaryForeground */
   --bubble-bot: var(--surface-2);
-  --border: #3d3020;
-  --danger: #d5654f;
-  --ok: #7fbf7f;
+  --border: #30363d;
+  --danger: #f85149; /* destructive */
+  --ok: #3fb950; /* derived: nous darkTerminal green */
+
+  /* texture backdrop opacity (dim grayscale noise) */
+  --texture-opacity: 0.05;
 }
 
 :root[data-theme='clean'] {
   color-scheme: light;
 
-  /* clean (light gray/white + ink accent) */
-  --bg: #f2f2f4;
-  --surface-1: #ffffff;
-  --surface-2: #f7f7f8;
-  --surface-3: #ececef;
+  /* clean — nous light neutrals, ink accent */
+  --bg: #ffffff; /* background */
+  --surface-1: #ffffff; /* popover */
+  --surface-2: #f6f8fa; /* card */
+  --surface-3: #ececef; /* derived: one rung below card */
   --glass: rgba(255, 255, 255, 0.78);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --text-1: #111114;
-  --text-2: #5c5c66;
-  --text-3: #9a9aa3;
-  --accent: #111114;
+  --glass-border: rgba(208, 215, 222, 0.6); /* border-based */
+  --text-1: #1f2328; /* foreground */
+  --text-2: #59636e; /* derived: GitHub light fg.muted (mutedForeground's family) */
+  --text-3: #6e7781; /* derived: GitHub light fg.subtle */
+  --accent: #111114; /* ink accent (kept) */
   --on-accent: #ffffff;
   --bubble-bot: #ffffff;
-  --border: rgba(0, 0, 0, 0.08);
-  --danger: #d6453d;
-  --ok: #1f9d55;
+  --border: #d0d7de;
+  --danger: #cf222e; /* destructive */
+  --ok: #116329; /* derived: nous light terminal green */
+
+  --texture-opacity: 0.03;
 }
 
 :root {
@@ -64,7 +77,13 @@
   --font-sans:
     'Manrope Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
     Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, 'Cascadia Code', Menlo, monospace;
+  --font-mono:
+    'JetBrains Mono', ui-monospace, 'Cascadia Code', Menlo, Consolas,
+    monospace;
+  /* Display wordmark face (OFL). Default: Bodoni Moda, the closest OFL
+     relative of the desktop's commercial Collapse. Playfair Display and
+     DM Serif Display ride along as fallbacks until the user picks one. */
+  --font-display: 'Bodoni Moda', 'Playfair Display', 'DM Serif Display', Georgia, serif;
 
   /* shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);

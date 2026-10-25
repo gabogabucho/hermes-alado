@@ -7,5 +7,11 @@ export function ReconnectBanner() {
 
   if (!opened || state === 'open') return null
 
-  return <div className="reconnect-banner">Reconectando…</div>
+  return (
+    <div className="reconnect-banner" role="status">
+      <span className="connect-glyphs" aria-label="Reconectando…">
+        CONNECT
+      </span>
+    </div>
+  )
 }

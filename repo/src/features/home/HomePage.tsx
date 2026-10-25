@@ -7,6 +7,7 @@ import { createProfile } from '../bots/store'
 import { useBotAppearance } from '../bots/appearance-store'
 import { user } from '../auth/store'
 import { profileForSession, requests } from '../chat/requests'
+import { useGroupRows, type GroupRow } from '../groups/store'
 import { Avatar, type AvatarMood, type AvatarSize } from '../../ui/Avatar'
 import { Icon } from '../../ui/Icon'
 import { IconButton } from '../../ui/IconButton'
@@ -61,6 +62,35 @@ function BotAvatar({
   return <Avatar name={name} size={size} mood={mood} appearance={appearance} />
 }
 
+function GroupFace({ name }: { name: string }) {
+  const appearance = useBotAppearance(name)
+  return <Avatar name={name} size="xs" appearance={appearance} />
+}
+
+/** The members' stored faces stacked, "+N" overflow — the group row leading. */
+function GroupAvatarStack({ names }: { names: string[] }) {
+  const shown = names.slice(0, 3)
+  const extra = names.length - shown.length
+  return (
+    <span className="avatar-stack">
+      {shown.map(name => (
+        <GroupFace key={name} name={name} />
+      ))}
+      {extra > 0 && (
+        <span className="avatar-stack-more" style={{ width: 24, height: 24 }}>
+          +{extra}
+        </span>
+      )}
+    </span>
+  )
+}
+
+type HomeEntry = { kind: 'bot'; bot: HomeBot } | { kind: 'group'; group: GroupRow }
+
+function entryActivity(entry: HomeEntry): number {
+  return entry.kind === 'bot' ? (entry.bot.canonical?.lastActive ?? 0) : entry.group.lastActivity
+}
+
 export function HomePage() {
   const { forward } = useSlideNavigate()
   const bots = useStore(homeBots)
@@ -69,6 +99,7 @@ export function HomePage() {
   const active = useStore(activeProfile)
   const me = useStore(user)
   const pending = useStore(requests)
+  const { rows: groupList, available: groupsAvail } = useGroupRows()
 
   const [sheetOpen, setSheetOpen] = useState(false)
   const [newName, setNewName] = useState('')
@@ -88,11 +119,24 @@ export function HomePage() {
 
   const others = bots.filter(b => b.name !== featured?.name)
 
-  const filtered = useMemo(() => {
+  // One list: bots + groups, sorted together by last activity (bots that never
+  // chatted sink to the bottom). Groups vanish entirely when the driver is off.
+  const entries = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return others
-    return others.filter(b => (b.displayName + ' ' + b.name).toLowerCase().includes(q))
-  }, [others, query])
+    const matchedBots = others.filter(
+      b => !q || (b.displayName + ' ' + b.name).toLowerCase().includes(q),
+    )
+    const matchedGroups =
+      groupsAvail === false
+        ? []
+        : groupList.filter(g => !q || g.name.toLowerCase().includes(q))
+    const merged: HomeEntry[] = [
+      ...matchedBots.map(bot => ({ kind: 'bot', bot }) as const),
+      ...matchedGroups.map(group => ({ kind: 'group', group }) as const),
+    ]
+    merged.sort((a, b) => entryActivity(b) - entryActivity(a))
+    return merged
+  }, [others, groupList, groupsAvail, query])
 
   useEffect(() => {
     const q = query.trim()
@@ -136,7 +180,14 @@ export function HomePage() {
     e.stopPropagation()
     e.preventDefault()
     setMenuBot(b)
-  }  function highlightAsPrincipal() {
+  }
+
+  function openProfileFromMenu() {
+    if (menuBot) forward(`/bots/${encodeURIComponent(menuBot.name)}`)
+    setMenuBot(null)
+  }
+
+  function highlightAsPrincipal() {
     if (menuBot) setFeaturedBot(menuBot.name)
     setMenuBot(null)
   }
@@ -197,7 +248,7 @@ export function HomePage() {
               Reintentar
             </button>
           </div>
-        ) : bots.length === 0 ? (
+        ) : bots.length === 0 && groupList.length === 0 ? (
           <div className="empty">
             <p className="muted">No hay bots. Tocá + para crear el primero.</p>
           </div>
@@ -217,43 +268,65 @@ export function HomePage() {
             )}
 
             <Section>
-              {filtered.map(b => (
-                <Row
-                  key={b.name}
-                  leading={<BotAvatar name={b.name} size="md" mood={b.working ? 'working' : 'idle'} />}
-                  title={b.displayName}
-                  subtitle={
-                    b.canonical?.preview
-                      ? previewSubtitle(b.canonical.preview) || 'Sin mensajes todavía'
-                      : 'Sin mensajes todavía'
-                  }
-                  trailing={
-                    <span className="list-row-trailing">
-                      {b.canonical ? (
-                        <span className="faint">{relativeTime(b.canonical.lastActive)}</span>
-                      ) : null}
-                      {b.unread && <span className="unread-dot" aria-label="No leído" />}
-                      <span
-                        className="row-more"
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Opciones de ${b.displayName}`}
-                        onClick={e => onMenu(e, b)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setMenuBot(b)
-                          }
-                        }}
-                      >
-                        <Icon name="more" size={18} />
+              {entries.map(entry =>
+                entry.kind === 'group' ? (
+                  <Row
+                    key={`group:${entry.group.roomId}`}
+                    leading={<GroupAvatarStack names={entry.group.members} />}
+                    title={entry.group.name}
+                    subtitle={
+                      entry.group.author
+                        ? `${entry.group.author}: ${entry.group.preview}`
+                        : entry.group.preview || 'Sin mensajes todavía'
+                    }
+                    trailing={
+                      <span className="list-row-trailing">
+                        <span className="faint">{relativeTime(entry.group.lastActivity)}</span>
+                        {entry.group.needsYou && <span className="needs-badge">Te necesitan</span>}
                       </span>
-                    </span>
-                  }
-                  onClick={() => openBot(b)}
-                />
-              ))}
+                    }
+                    onClick={() => forward(`/group/${encodeURIComponent(entry.group.roomId)}`)}
+                  />
+                ) : (
+                  <Row
+                    key={entry.bot.name}
+                    leading={
+                      <BotAvatar name={entry.bot.name} size="md" mood={entry.bot.working ? 'working' : 'idle'} />
+                    }
+                    title={entry.bot.displayName}
+                    subtitle={
+                      entry.bot.canonical?.preview
+                        ? previewSubtitle(entry.bot.canonical.preview) || 'Sin mensajes todavía'
+                        : 'Sin mensajes todavía'
+                    }
+                    trailing={
+                      <span className="list-row-trailing">
+                        {entry.bot.canonical ? (
+                          <span className="faint">{relativeTime(entry.bot.canonical.lastActive)}</span>
+                        ) : null}
+                        {entry.bot.unread && <span className="unread-dot" aria-label="No leído" />}
+                        <span
+                          className="row-more"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Opciones de ${entry.bot.displayName}`}
+                          onClick={e => onMenu(e, entry.bot)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setMenuBot(entry.bot)
+                            }
+                          }}
+                        >
+                          <Icon name="more" size={18} />
+                        </span>
+                      </span>
+                    }
+                    onClick={() => openBot(entry.bot)}
+                  />
+                ),
+              )}
             </Section>
 
             {query.trim().length >= 2 && (
@@ -308,13 +381,28 @@ export function HomePage() {
           {creating ? 'Creando…' : 'Crear'}
         </button>
         <div className="sheet-divider" />
-        <button className="btn btn-block" disabled>
-          Nuevo grupo · Próximamente
+        <button
+          className="btn btn-block"
+          disabled={groupsAvail === false}
+          onClick={() => {
+            setSheetOpen(false)
+            forward('/groups/new')
+          }}
+        >
+          {groupsAvail === false ? 'Nuevo grupo · No disponible' : 'Nuevo grupo'}
         </button>
+        {groupsAvail === false && (
+          <p className="faint" style={{ marginTop: 10 }}>
+            El motor de grupos no está disponible en este Hermes.
+          </p>
+        )}
       </Sheet>
 
       <Sheet open={menuBot !== null} onClose={() => setMenuBot(null)} title={menuBot?.displayName ?? ''}>
         <div className="list">
+          <button className="btn btn-block" onClick={openProfileFromMenu}>
+            Ver perfil
+          </button>
           <button className="btn btn-block" onClick={highlightAsPrincipal}>
             Destacar como principal
           </button>

@@ -1,7 +1,8 @@
 import { atom } from 'nanostores'
 import { useStore } from '@nanostores/react'
 import { useEffect } from 'react'
-import { groupEngine, type Room } from '../../lib/hermes/groups'
+import { groupEngine, type Room, type RoomActor, type RoomEvent, type RoomMember } from '../../lib/hermes/groups'
+import { memberName } from './members'
 
 /**
  * Group list data for Home (the architect wires `useGroupRows()` into the
@@ -17,7 +18,11 @@ export interface GroupRow {
   roomId: string
   name: string
   members: string[]
+  /** The last message, already trimmed. */
   preview: string
+  /** Who wrote the last message ('' when unknown) — Home prefixes the
+   *  preview with it ("Pancho: …"), mirroring the room transcript. */
+  author: string
   lastActivity: number
   needsYou: boolean
 }
@@ -68,17 +73,22 @@ async function roomToRow(room: Room): Promise<GroupRow | null> {
   try {
     const { driver_status } = await groupEngine.state(room.room_id)
     let preview = ''
+    let author = ''
     const latest = room.latest_seq ?? null
     if (latest && latest > 0) {
       const page = await groupEngine.log(room.room_id, Math.max(latest - 1, 0), 100)
       const lastMessage = [...page.events].reverse().find(e => isMessageKind(e.kind))
-      if (lastMessage) preview = previewOf(lastMessage.payload)
+      if (lastMessage) {
+        preview = previewOf(lastMessage.payload)
+        author = authorOf(lastMessage, room.members)
+      }
     }
     return {
       roomId: room.room_id,
       name: room.name,
       members: room.members.map(m => m.profile || m.member_id || '').filter(Boolean),
       preview,
+      author,
       lastActivity: room.updated_at ?? room.created_at ?? 0,
       needsYou: (driver_status?.pending_actions?.length ?? 0) > 0,
     }
@@ -86,6 +96,16 @@ async function roomToRow(room: Room): Promise<GroupRow | null> {
     // Room vanished (disbanded mid-cycle); the next `groups.list` drops it.
     return null
   }
+}
+
+/** The author label of a room event — same resolution as the transcript
+ *  (`GroupMessages.eventAuthor`): user messages are "Tú", bot messages take
+ *  the log actor's display_name, else the roster name, else the id. */
+function authorOf(event: RoomEvent, members: RoomMember[]): string {
+  if (event.kind === 'message.user') return 'Tú'
+  const actor = event.actor as RoomActor & { display_name?: string }
+  const member = actor.id ? members.find(m => m.member_id === actor.id) : undefined
+  return actor.display_name || memberName(member) || actor.id || ''
 }
 
 export async function refreshGroupRows(): Promise<void> {

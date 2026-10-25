@@ -359,6 +359,19 @@ button {
   font-weight: 600;
 }
 
+/* "Te necesitan" on a group row (pending approvals/retries). */
+.needs-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
+  color: var(--accent-line);
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .home-hero-name {
   font-size: var(--text-lg);
   font-weight: 700;

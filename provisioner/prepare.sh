@@ -18,10 +18,13 @@
 #   companion  alado-companion skill for every bot profile: copy
 #              skills/alado-companion to ~/.hermes/alado-skills/, MERGE that dir
 #              into each profile's skills.external_dirs (`hermes -p <p> config
-#              get/set`, never dropping existing entries) and upsert the marked
-#              alado block in each profile's SOUL.md between <!-- alado:begin -->
-#              and <!-- alado:end --> so bots know they are talked to from Alado
-#              and stop pointing users at Hermes Desktop menus that don't exist
+#              get/set`, never dropping existing entries), set the top-level
+#              platform_hints.tui.replace config per profile
+#              (`hermes -p <p> config set --force`, never under agent:) and
+#              remove the legacy marked alado block from each profile's SOUL.md
+#              (cleanup only, never re-added) so bots know they are talked to
+#              from Alado and stop pointing users at Hermes Desktop menus that
+#              don't exist
 #
 # Idempotent: re-running changes nothing that is already correct.
 # Diagnostics: --check (read-only, exit 0/1) and --check --json.
@@ -55,12 +58,17 @@
 #     profile config at ~/.hermes/config.yaml, others at
 #     ~/.hermes/profiles/<name>/config.yaml — managed only via
 #     `hermes -p <profile> config get/set` (phase 7c brief, verified live)
+#   - platform_hints.tui.replace: TOP-LEVEL per-profile config key whose value is
+#     the text injected into the TUI platform hint (never under agent:); written
+#     only via `hermes -p <profile> config set --force platform_hints.tui.replace
+#     <text>` as the hermes user (architect, verified live on the VPS)
 #   - profile SOUL.md: ~/.hermes/SOUL.md (default),
-#     ~/.hermes/profiles/<name>/SOUL.md (others)
+#     ~/.hermes/profiles/<name>/SOUL.md (others) — the legacy marked alado block
+#     is removed only (cleanup), never added again
 
 set -euo pipefail
 
-VERSION="2.2.0"
+VERSION="2.3.0"
 SCHEMA=2
 
 # --- Constants ------------------------------------------------------------------
@@ -102,6 +110,9 @@ ALADO_SKILL_DIR_NAME="alado-companion"      # skill folder (source and installed
 # shellcheck disable=SC2088
 ALADO_SKILLS_ENTRY="~/.hermes/alado-skills"
 ALADO_CONFIG_KEY="skills.external_dirs"
+ALADO_HINT_FILE="platform-hint.txt"          # one-line text inside the skill dir
+PLATFORM_HINT_KEY="platform_hints.tui.replace" # TOP-LEVEL key (never under agent:)
+# Legacy marked block in profile SOUL.md (phase 7c v1): removed only, never re-added.
 SOUL_BLOCK_BEGIN="<!-- alado:begin -->"
 SOUL_BLOCK_END="<!-- alado:end -->"
 
@@ -154,11 +165,13 @@ ALADO_SKILLS_DIR=""
 PROFILES=()
 LIST_ENTRIES=()
 MISSING_DIRS=()
-MISSING_SOUL=()
+HINT_MISSING=()
+SOUL_LEFTOVER=()
 COMP_PROFILES_JSON=""
 P_NAME=""
 P_SOUL=""
 P_DIRS_STATE=""
+P_HINT_STATE=""
 P_SOUL_STATE=""
 
 # --- Logging ---------------------------------------------------------------------
@@ -1848,11 +1861,12 @@ EOF
 
 # --- Companion module (phase 7c) ---------------------------------------------------
 # Teaches every bot profile it is talked to from Alado (the phone PWA), not Hermes
-# Desktop: ships the alado-companion skill and wires it into every profile.
-# Verified live by the architect: without the SOUL pointer the model did NOT load
-# the skill; with it, it did (skill_view alado-companion → correct Alado steps).
-# New bots created from Alado use clone_from (copies config.yaml + SOUL.md), so
-# they inherit both automatically.
+# Desktop: ships the alado-companion skill, wires it into every profile via the
+# TOP-LEVEL config key platform_hints.tui.replace (never under agent:; --force
+# required), and removes the legacy marked alado block from every SOUL.md
+# (cleanup only — the SOUL pointer approach was replaced, verified live by the
+# architect on the VPS). New bots created from Alado use clone_from (copies
+# config.yaml + SOUL.md), so they inherit the config automatically.
 
 # Resolves the skills source folder: --skills-src wins; the default is the skills/
 # folder next to the provisioner directory (mirror of resolve_plugin_src).
@@ -1871,7 +1885,7 @@ resolve_skills_src() {
 
 skill_source_valid() {
   [[ -f $SKILLS_SRC/$ALADO_SKILL_DIR_NAME/SKILL.md \
-    && -f $SKILLS_SRC/$ALADO_SKILL_DIR_NAME/soul-block.md ]]
+    && -s $SKILLS_SRC/$ALADO_SKILL_DIR_NAME/$ALADO_HINT_FILE ]]
 }
 
 # Profiles to wire: the default profile plus every ~/.hermes/profiles/<name>/.
@@ -1961,70 +1975,11 @@ hermes_config_get_p() {
   printf '%s' "$out"
 }
 
-# sha256 of the block content between the markers in <file> ("" when absent).
-soul_inner_sha() {
-  awk -v b="$SOUL_BLOCK_BEGIN" -v e="$SOUL_BLOCK_END" '
-    index($0, b) > 0 { ins = 1; next }
-    index($0, e) > 0 { ins = 0; next }
-    ins { print }
-  ' "$1" 2>/dev/null | sha256sum | awk '{print $1}'
-}
-
-# True when <file> ends with the block from <blockfile>: identical block content,
-# preceded by exactly one blank line (or first line), and nothing but blank lines
-# after it. Stale/misplaced blocks fail → the module strips and re-appends.
-soul_block_ok() {
-  local file=$1 blockfile=$2
-  [[ -f $file && -f $blockfile ]] || return 1
-  local want cur
-  want=$(soul_inner_sha "$blockfile")
-  [[ -n $want ]] || return 1
-  cur=$(soul_inner_sha "$file")
-  [[ $cur == "$want" ]] || return 1
-  awk -v b="$SOUL_BLOCK_BEGIN" -v e="$SOUL_BLOCK_END" '
-    index($0, b) > 0 {
-      in_blk = 1
-      ok = (NR == 1) || (prev ~ /^[[:space:]]*$/ && prev_prev !~ /^[[:space:]]*$/)
-      next
-    }
-    in_blk && index($0, e) > 0 { in_blk = 0; seen_end = 1; next }
-    in_blk { next }
-    seen_end && $0 !~ /^[[:space:]]*$/ { ok = 0 }
-    { prev_prev = prev; prev = $0 }
-    END { if (in_blk) ok = 0; exit (ok ? 0 : 1) }
-  ' "$file"
-}
-
-# Appends <blockfile> to <file>: collapses trailing blank lines and ensures exactly
-# one blank line before the block. An empty/blank-only file gets the block only.
-append_block_at_end() {
-  local file=$1 blockfile=$2
-  if (( DRY )); then
-    printf '[dry-run] append block (%s) to %s\n' "$blockfile" "$file"
-    return 0
-  fi
-  local tmp=$file.droidbot.tmp.$$
-  awk -v blk="$blockfile" '
-    { lines[NR] = $0 }
-    END {
-      n = NR
-      while (n > 0 && lines[n] ~ /^[[:space:]]*$/) n--
-      if (n > 0) {
-        for (i = 1; i <= n; i++) print lines[i]
-        print ""
-      }
-      while ((getline x < blk) > 0) print x
-      close(blk)
-    }
-  ' "$file" > "$tmp"
-  mv "$tmp" "$file"
-  return 0
-}
-
-# Reads one profile's state into P_NAME/P_SOUL/P_DIRS_STATE/P_SOUL_STATE
-# (external_dirs: ok|missing|unparsable; soul_block: ok|stale|missing).
+# Reads one profile's state into P_NAME/P_SOUL/P_DIRS_STATE/P_HINT_STATE/P_SOUL_STATE
+# (external_dirs: ok|missing|unparsable; platform_hint: ok|missing|differs;
+# soul_block: absent|leftover).
 companion_read_profile() {
-  local profile=$1 blockfile=$2 current
+  local profile=$1 hintfile=$2 current want
   P_NAME=$profile
   P_SOUL=$(soul_file_for "$profile")
   current=$(hermes_config_get_p "$profile" "$ALADO_CONFIG_KEY")
@@ -2037,27 +1992,41 @@ companion_read_profile() {
   else
     P_DIRS_STATE="missing"
   fi
-  if [[ -f $P_SOUL ]] && soul_block_ok "$P_SOUL" "$blockfile"; then
-    P_SOUL_STATE="ok"
-  elif [[ -f $P_SOUL ]] && grep -qF "$SOUL_BLOCK_BEGIN" "$P_SOUL"; then
-    P_SOUL_STATE="stale"
+  current=$(hermes_config_get_p "$profile" "$PLATFORM_HINT_KEY")
+  if [[ -s $hintfile ]]; then
+    want=$(cat "$hintfile")
+    if [[ -n $current && $current == "$want" ]]; then
+      P_HINT_STATE="ok"
+    elif [[ -z $current ]]; then
+      P_HINT_STATE="missing"
+    else
+      P_HINT_STATE="differs"
+    fi
   else
-    P_SOUL_STATE="missing"
+    P_HINT_STATE="missing" # cannot compare: the hint file is not installed
+  fi
+  if [[ -f $P_SOUL ]] && grep -qF "$SOUL_BLOCK_BEGIN" "$P_SOUL"; then
+    P_SOUL_STATE="leftover"
+  else
+    P_SOUL_STATE="absent"
   fi
 }
 
 # JSON array of all profiles. Fills the globals COMP_PROFILES_JSON and
-# MISSING_DIRS/MISSING_SOUL (profiles whose state is not "ok"). Must be called
-# WITHOUT command substitution (a $( ) subshell would drop the side effects).
+# MISSING_DIRS/HINT_MISSING/SOUL_LEFTOVER (profiles whose state is not ok/absent).
+# Must be called WITHOUT command substitution (a $( ) subshell would drop the
+# side effects).
 companion_profiles_json() {
-  local blockfile=$1 p out=""
+  local hintfile=$1 p out=""
   MISSING_DIRS=()
-  MISSING_SOUL=()
+  HINT_MISSING=()
+  SOUL_LEFTOVER=()
   for p in "${PROFILES[@]}"; do
-    companion_read_profile "$p" "$blockfile"
-    out+="{\"name\":$(printf '%s' "$P_NAME" | json_escape | sed 's/^/"/;s/$/"/'),\"soul\":$(printf '%s' "$P_SOUL" | json_escape | sed 's/^/"/;s/$/"/'),\"external_dirs\":\"${P_DIRS_STATE}\",\"soul_block\":\"${P_SOUL_STATE}\"},"
+    companion_read_profile "$p" "$hintfile"
+    out+="{\"name\":$(printf '%s' "$P_NAME" | json_escape | sed 's/^/"/;s/$/"/'),\"soul\":$(printf '%s' "$P_SOUL" | json_escape | sed 's/^/"/;s/$/"/'),\"external_dirs\":\"${P_DIRS_STATE}\",\"platform_hint\":\"${P_HINT_STATE}\",\"soul_block\":\"${P_SOUL_STATE}\"},"
     [[ $P_DIRS_STATE == "ok" ]] || MISSING_DIRS+=("$p")
-    [[ $P_SOUL_STATE == "ok" ]] || MISSING_SOUL+=("$p")
+    [[ $P_HINT_STATE == "ok" ]] || HINT_MISSING+=("$p")
+    [[ $P_SOUL_STATE == "absent" ]] || SOUL_LEFTOVER+=("$p")
   done
   COMP_PROFILES_JSON=${out%,}
 }
@@ -2100,33 +2069,53 @@ companion_ensure_dirs() {
   return 1
 }
 
-# Upserts the marked alado block into <profile>'s SOUL.md (replace-or-append; text
-# outside the markers is never touched). 0 = ok/up to date.
-companion_ensure_soul() {
-  local profile=$1 blockfile=$2 soul
-  soul=$(soul_file_for "$profile")
-  if [[ -f $soul ]] && soul_block_ok "$soul" "$blockfile"; then
-    info "companion: ${profile}: SOUL block already correct (${soul})"
-    return 0
-  fi
-  if [[ ! -f $soul ]]; then
-    cmd mkdir -p "$(dirname "$soul")"
-    if ! cmd cp "$blockfile" "$soul"; then
-      warn "companion: ${profile}: could not create ${soul}"
-      manual "cp '${blockfile}' '${soul}'"
-      return 1
-    fi
-    cmd chown "$HERMES_USER:" "$soul"
-    info "companion: ${profile}: created ${soul} with the alado block"
-    return 0
-  fi
-  strip_marked_block "$soul" "$SOUL_BLOCK_BEGIN" "$SOUL_BLOCK_END" || true
-  if ! append_block_at_end "$soul" "$blockfile"; then
-    warn "companion: ${profile}: could not update ${soul}"
+# Sets <profile>'s platform_hints.tui.replace (TOP-LEVEL key) to the contents of
+# <hintfile> with `hermes -p <profile> config set --force` as the hermes user.
+# 0 = ok/up to date.
+companion_ensure_hint() {
+  local profile=$1 hintfile=$2 current want
+  if ! hermes_cli_exists; then
+    warn "companion: no 'hermes' CLI on PATH for user ${HERMES_USER}; set the platform hint manually:"
+    manual "runuser -u ${HERMES_USER} -- hermes -p ${profile} config set --force ${PLATFORM_HINT_KEY} '<hint text>'"
     return 1
   fi
-  cmd chown "$HERMES_USER:" "$soul"
-  info "companion: ${profile}: SOUL block upserted in ${soul}"
+  if [[ ! -s $hintfile ]]; then
+    warn "companion: ${profile}: ${ALADO_HINT_FILE} missing/empty at ${hintfile} — set ${PLATFORM_HINT_KEY} manually:"
+    manual "runuser -u ${HERMES_USER} -- hermes -p ${profile} config set --force ${PLATFORM_HINT_KEY} '<hint text>'"
+    return 1
+  fi
+  want=$(cat "$hintfile")
+  current=$(hermes_config_get_p "$profile" "$PLATFORM_HINT_KEY")
+  if [[ $current == "$want" ]]; then
+    info "companion: ${profile}: ${PLATFORM_HINT_KEY} already set"
+    return 0
+  fi
+  if (( DRY )); then
+    run_hermes hermes -p "$profile" config set --force "$PLATFORM_HINT_KEY" "$want"
+    return 0
+  fi
+  if run_hermes hermes -p "$profile" config set --force "$PLATFORM_HINT_KEY" "$want" >/dev/null 2>&1; then
+    info "companion: ${profile}: ${PLATFORM_HINT_KEY} set (--force)"
+    return 0
+  fi
+  warn "companion: ${profile}: 'hermes -p ${profile} config set --force ${PLATFORM_HINT_KEY}' failed"
+  manual "runuser -u ${HERMES_USER} -- hermes -p ${profile} config set --force ${PLATFORM_HINT_KEY} '${want}'"
+  return 1
+}
+
+# Removes the legacy marked alado block from <profile>'s SOUL.md (cleanup only —
+# never adds it again; text outside the markers is never touched). 0 = clean/absent.
+companion_cleanup_soul() {
+  local profile=$1 soul
+  (( CHECK )) && return 0
+  soul=$(soul_file_for "$profile")
+  [[ -f $soul ]] || return 0
+  if strip_marked_block "$soul" "$SOUL_BLOCK_BEGIN" "$SOUL_BLOCK_END"; then
+    cmd chown "$HERMES_USER:" "$soul"
+    info "companion: ${profile}: removed the legacy marked alado block from ${soul}"
+  else
+    info "companion: ${profile}: no marked alado block in ${soul}"
+  fi
   return 0
 }
 
@@ -2140,10 +2129,10 @@ mod_companion() {
   local skill_dir="$ALADO_SKILLS_DIR/$ALADO_SKILL_DIR_NAME"
 
   if ! skill_source_valid; then
-    set_status companion fail "no alado-companion skill source at ${SKILLS_SRC} (SKILL.md + soul-block.md required)"
+    set_status companion fail "no alado-companion skill source at ${SKILLS_SRC} (SKILL.md + ${ALADO_HINT_FILE} required)"
     manual "copy skills/alado-companion from the repo to the VPS and pass --skills-src <path>"
     M_DETAIL[companion]=$(cat <<EOF
-"installed":$([[ -f $skill_dir/SKILL.md && -f $skill_dir/soul-block.md ]] && echo true || echo false),"skill_dir":$(printf '%s' "$skill_dir" | json_escape | sed 's/^/"/;s/$/"/'),"source":$(printf '%s' "$SKILLS_SRC" | json_escape | sed 's/^/"/;s/$/"/'),"profiles":[]
+"installed":$([[ -f $skill_dir/SKILL.md && -s $skill_dir/$ALADO_HINT_FILE ]] && echo true || echo false),"skill_dir":$(printf '%s' "$skill_dir" | json_escape | sed 's/^/"/;s/$/"/'),"source":$(printf '%s' "$SKILLS_SRC" | json_escape | sed 's/^/"/;s/$/"/'),"profiles":[]
 EOF
     )
     M_DETAIL[companion]=$(printf '%s' "${M_DETAIL[companion]}" | tr -d '\n\t')
@@ -2170,17 +2159,22 @@ EOF
   fi
   cmd chown "$HERMES_USER:" "$ALADO_SKILLS_DIR"
 
-  # 2/3. Every profile: merge external_dirs + upsert the SOUL block.
+  # 2/3/4. Every profile: merge external_dirs, set the platform hint (--force,
+  # top-level) and remove the legacy marked SOUL block (cleanup only).
   collect_profiles
-  local p blockfile="$skill_dir/soul-block.md"
+  local p hintfile="$skill_dir/$ALADO_HINT_FILE"
+  if (( DRY )) && [[ ! -s $hintfile ]]; then
+    hintfile="$skill_src_dir/$ALADO_HINT_FILE" # rehearsal prints the real value
+  fi
   for p in "${PROFILES[@]}"; do
     companion_ensure_dirs "$p" || true
-    companion_ensure_soul "$p" "$blockfile" || true
+    companion_ensure_hint "$p" "$hintfile" || true
+    companion_cleanup_soul "$p"
   done
 
-  companion_profiles_json "$blockfile"
+  companion_profiles_json "$hintfile"
   local installed=false
-  [[ -f $skill_dir/SKILL.md && -f $skill_dir/soul-block.md ]] && installed=true
+  [[ -f $skill_dir/SKILL.md && -s $skill_dir/$ALADO_HINT_FILE ]] && installed=true
 
   M_DETAIL[companion]=$(cat <<EOF
 "installed":${installed},"skill_dir":$(printf '%s' "$skill_dir" | json_escape | sed 's/^/"/;s/$/"/'),"source":$(printf '%s' "$SKILLS_SRC" | json_escape | sed 's/^/"/;s/$/"/'),"profiles":[${COMP_PROFILES_JSON}]
@@ -2189,25 +2183,25 @@ EOF
   M_DETAIL[companion]=$(printf '%s' "${M_DETAIL[companion]}" | tr -d '\n\t')
 
   if (( DRY )); then
-    set_status companion ok "(rehearsal) skill copied, external_dirs merged and SOUL block upserted per profile"
+    set_status companion ok "(rehearsal) skill copied, external_dirs merged, platform hint set and marked SOUL block removed per profile"
     return
   fi
-  if ((${#MISSING_DIRS[@]} > 0 || ${#MISSING_SOUL[@]} > 0)); then
-    set_status companion fail "external_dirs missing in ${#MISSING_DIRS[@]} profile(s) (${MISSING_DIRS[*]}); SOUL block missing/stale in ${#MISSING_SOUL[@]} profile(s) (${MISSING_SOUL[*]})"
+  if ((${#MISSING_DIRS[@]} > 0 || ${#HINT_MISSING[@]} > 0 || ${#SOUL_LEFTOVER[@]} > 0)); then
+    set_status companion fail "external_dirs missing in ${#MISSING_DIRS[@]} profile(s) (${MISSING_DIRS[*]}); platform hint missing/different in ${#HINT_MISSING[@]} profile(s) (${HINT_MISSING[*]}); marked SOUL block left in ${#SOUL_LEFTOVER[@]} profile(s) (${SOUL_LEFTOVER[*]})"
     return
   fi
-  set_status companion ok "skill installed; ${#PROFILES[@]} profile(s) wired (external_dirs + SOUL block)"
+  set_status companion ok "skill installed; ${#PROFILES[@]} profile(s) wired (external_dirs + platform hint; marked SOUL block removed)"
 }
 
 check_companion() {
   local skill_dir="$ALADO_SKILLS_DIR/$ALADO_SKILL_DIR_NAME"
-  local blockfile="$skill_dir/soul-block.md"
+  local hintfile="$skill_dir/$ALADO_HINT_FILE"
   local installed=false
-  [[ -f $skill_dir/SKILL.md && -f $skill_dir/soul-block.md ]] && installed=true
+  [[ -f $skill_dir/SKILL.md && -s $skill_dir/$ALADO_HINT_FILE ]] && installed=true
 
   collect_profiles
 
-  companion_profiles_json "$blockfile"
+  companion_profiles_json "$hintfile"
 
   M_DETAIL[companion]=$(cat <<EOF
 "installed":${installed},"skill_dir":$(printf '%s' "$skill_dir" | json_escape | sed 's/^/"/;s/$/"/'),"source":$(printf '%s' "$SKILLS_SRC" | json_escape | sed 's/^/"/;s/$/"/'),"profiles":[${COMP_PROFILES_JSON}]
@@ -2220,11 +2214,11 @@ EOF
     manual "sudo bash prepare.sh companion --skills-src <path-to-skills>"
     return
   fi
-  if ((${#MISSING_DIRS[@]} == 0 && ${#MISSING_SOUL[@]} == 0)); then
-    set_status companion ok "skill installed; all ${#PROFILES[@]} profile(s) wired (external_dirs + SOUL block)"
+  if ((${#MISSING_DIRS[@]} == 0 && ${#HINT_MISSING[@]} == 0 && ${#SOUL_LEFTOVER[@]} == 0)); then
+    set_status companion ok "skill installed; all ${#PROFILES[@]} profile(s) wired (external_dirs + platform hint; no marked SOUL block)"
     return
   fi
-  set_status companion fail "external_dirs missing in ${#MISSING_DIRS[@]} profile(s) (${MISSING_DIRS[*]}); SOUL block missing/stale in ${#MISSING_SOUL[@]} profile(s) (${MISSING_SOUL[*]})"
+  set_status companion fail "external_dirs missing in ${#MISSING_DIRS[@]} profile(s) (${MISSING_DIRS[*]}); platform hint missing/different in ${#HINT_MISSING[@]} profile(s) (${HINT_MISSING[*]}); marked SOUL block left in ${#SOUL_LEFTOVER[@]} profile(s) (${SOUL_LEFTOVER[*]})"
   manual "sudo bash prepare.sh companion"
 }
 

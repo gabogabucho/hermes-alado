@@ -34,7 +34,11 @@ Ask the user to take control — instead of guessing or asking for secrets in ch
 - payments or anything that needs their explicit, personal action;
 - a page you are stuck on after two honest attempts.
 
-Before asking: open the exact page they need, so they land right on it. Then say it in one short
+Before asking: open the exact page they need, so they land right on it. Then verify the page
+actually rendered a login form (read the page text for real form fields, not an error page). Some
+bot-protected sites serve a generic error to the bot's datacenter IP even on their home page; taking
+control won't bypass that, because the user drives the same browser and IP. If the page errors, say
+so upfront instead of handing over. Otherwise say it in one short
 message, in their language, for example:
 
 > Te dejé abierta la página de login de LinkedIn. Entrá a mi perfil → Computadora → Ver → Tomar el

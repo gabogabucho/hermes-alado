@@ -15,11 +15,13 @@ replies short and phone-friendly.
 The skill lives in `skills/alado-companion/`:
 
 - `SKILL.md` — the skill itself (what the model loads).
-- `soul-block.md` — the marked SOUL pointer block (`<!-- alado:begin/end -->`) that makes the
-  model load the skill. Without this block in a profile's `SOUL.md`, the model does not load
-  the skill.
+- `platform-hint.txt` — one line of text that Hermes injects as the TUI platform hint
+  (config key `platform_hints.tui.replace`, top-level). It tells the model it is chatting
+  through Alado and to load the skill with `skill_view` before answering anything about its
+  screen/computer, logins, captchas or 2FA.
 
 It is installed by the provisioner `companion` module (`provisioner/prepare.sh`): the folder is
-copied to `~/.hermes/alado-skills/`, merged into every profile's `skills.external_dirs`, and
-the SOUL block is upserted into every profile's `SOUL.md`. See
-[`docs/provisioner.md`](../docs/provisioner.md).
+copied to `~/.hermes/alado-skills/`, merged into every profile's `skills.external_dirs`, the
+platform hint is set per profile with `hermes -p <profile> config set --force
+platform_hints.tui.replace`, and any legacy marked `<!-- alado:begin/end -->` block in a
+profile's `SOUL.md` is removed. See [`docs/provisioner.md`](../docs/provisioner.md).

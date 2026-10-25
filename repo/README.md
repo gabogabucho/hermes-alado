@@ -1,32 +1,58 @@
-# React + TypeScript + Vite
+# Hermes DroidBot
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Cliente móvil (PWA) para el agente [Hermes](https://github.com/NousResearch/hermes-agent).
+Habla con tus bots, crea chats individuales y (próximamente) grupos, conecta aplicaciones y
+gestiona la bóveda de credenciales — todo desde el teléfono.
 
-Currently, two official plugins are available:
+## Modos de autenticación
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Hermes se sirve en dos modos. DroidBot los detecta solos:
 
-## React Compiler
+| Modo | Cómo se detecta | Auth REST | Auth WS |
+|------|-----------------|-----------|---------|
+| **loopback** (`hermes dashboard` local, sin `public_url`) | La página raíz inyecta `window.__HERMES_SESSION_TOKEN__` | Header `X-Hermes-Session-Token` | `/api/ws?token=<token>` |
+| **gated** (`public_url` / OAuth) | La raíz no trae token | Cookie de sesión (`credentials: include`) | `POST /api/auth/ws-ticket` → `/api/ws?ticket=<ticket>` (un solo uso, ~30 s) |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+El token de loopback se guarda **solo en memoria**; nunca en `localStorage`/`IndexedDB`. Solo se
+persiste la URL del backend.
 
-## Expanding the Oxlint configuration
+## Desarrollo
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd repo
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Por defecto el proxy de Vite apunta a `https://droidbot.gabrielurrutia.com.ar` (el backend gated
+real). Para desarrollar contra un Hermes local:
+
+```bash
+hermes dashboard            # en otra terminal, escucha en http://localhost:9119
+HERMES_URL=http://localhost:9119 npm run dev
+```
+
+El proxy reenvía `/api`, `/auth`, `/login` y `/__hermes_root` a Hermes, y reescribe el header
+`Origin` de los upgrades de WebSocket para pasar el guard `_ws_host_origin_reason`.
+
+### Abrir desde el teléfono en la LAN
+
+`server.host: true` expone el dev server en la red. En modo **loopback** alcanza con abrir
+`http://<lan-ip>:5173`. En modo **gated**, el login desde un teléfono por `http://` plano **no
+funciona**: la cookie `__Host-` exige HTTPS. Probá el modo gated desde el teléfono contra un
+deploy HTTPS.
+
+## Verificación
+
+No correr `npm run build`. Verificación permitida:
+
+```bash
+npx tsc -p tsconfig.app.json --noEmit
+npm run lint
+```
+
+## Licencia
+
+El código del transporte JSON-RPC bajo `src/lib/hermes/vendor/` está copiado de
+[`NousResearch/hermes-agent`](https://github.com/NousResearch/hermes-agent) (MIT, Copyright © 2025
+Nous Research) y mantiene su encabezado de licencia.

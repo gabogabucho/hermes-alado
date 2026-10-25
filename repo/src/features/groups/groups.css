@@ -1,0 +1,342 @@
+/* Groups (Phase 2) — mobile-first, semantic tokens only, both themes. */
+
+.group-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: calc(var(--safe-top) + var(--space-2)) var(--space-3) var(--space-2);
+  z-index: 5;
+}
+
+/* Floating pill with stacked avatars (+N) and the group name. */
+.group-header-pill {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border-radius: var(--r-full);
+  padding: var(--space-1) var(--space-3);
+}
+
+.group-header-name {
+  font-weight: 700;
+  font-size: 0.98rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Member activity row ("Pancho está escribiendo…/trabajando"). */
+.group-activity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-2);
+  font-size: 0.78rem;
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.group-activity-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--ok);
+  animation: dot-blink 1.2s infinite;
+}
+
+/* ── transcript ────────────────────────────────────────────────────────── */
+
+.group-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.group-msg--user {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.group-msg--member {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.group-msg-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Bot name above the bubble. */
+.group-msg-author {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  padding-left: 4px;
+}
+
+.group-msg-bubble {
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.group-msg-bubble--member {
+  background: var(--bubble-bot);
+  border: 1px solid var(--border);
+  border-radius: 16px 16px 16px 4px;
+  max-width: 100%;
+}
+
+.group-msg-bubble--user {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 16px 16px 4px 16px;
+  max-width: 82%;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Avatar at the bottom-left of each bot message. */
+.group-msg-avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.group-notice {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 12px;
+  color: var(--text-2);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.group-notice strong {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+/* ── pending actions / stop ────────────────────────────────────────────── */
+
+.group-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.group-action-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.group-action-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.group-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.group-disband-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-md);
+}
+
+/* ── composer ──────────────────────────────────────────────────────────── */
+
+.group-composer {
+  position: relative;
+}
+
+.group-composer-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.group-composer-error {
+  margin: 0 var(--space-3);
+}
+
+.mention-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 200px;
+  max-width: min(280px, 90vw);
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: var(--shadow-md);
+}
+
+.mention-option {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  color: var(--text-1);
+  border-radius: var(--r-sm);
+  text-align: left;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.mention-option--active {
+  background: var(--surface-2);
+}
+
+.mention-handle {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.mention-meta {
+  color: var(--text-3);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── new group ─────────────────────────────────────────────────────────── */
+
+.new-group-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.new-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: calc(var(--safe-top) + var(--space-2)) var(--space-3) var(--space-2);
+}
+
+.new-group-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.new-group-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-4) calc(var(--space-4) + var(--safe-bottom));
+}
+
+.new-group-counter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.new-group-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.new-group-member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  border-radius: var(--r-md);
+  color: var(--text-1);
+  font-size: inherit;
+  text-align: left;
+}
+
+.new-group-member:active {
+  background: var(--surface-2);
+}
+
+.new-group-member--selected {
+  border-color: var(--accent);
+}
+
+.new-group-member-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.new-group-member-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-full);
+  border: 1.5px solid var(--text-3);
+  color: transparent;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.new-group-member-check--on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}

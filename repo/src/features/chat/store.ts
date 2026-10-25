@@ -383,13 +383,8 @@ on('reasoning.delta', e => {
   }
 })
 
-on('thinking.delta', e => {
-  if (e.session_id !== liveSid) return
-  const id = ensureStreamingAssistant()
-  if (id && typeof e.payload?.text === 'string') {
-    patchAssistant(id, m => ({ ...m, reasoning: m.reasoning + e.payload!.text }))
-  }
-})
+// `thinking.delta` is Hermes' wait/spinner line ("(°ロ°) mulling..."), not
+// reasoning — the desktop app keeps it out of the transcript too.
 
 on('message.delta', e => {
   if (e.session_id !== liveSid) return
@@ -399,10 +394,34 @@ on('message.delta', e => {
   if (id) patchAssistant(id, m => ({ ...m, text: m.text + text }))
 })
 
+/**
+ * Close the bubble that is streaming now, so whatever comes next (a tool, the
+ * next text segment) lands below it in order. An empty bubble is dropped.
+ */
+function sealStreamingAssistant(): void {
+  const id = streamingAssistantId
+  if (!id) return
+  streamingAssistantId = null
+  items.set(
+    items.get().flatMap(m => {
+      if (m.kind !== 'assistant' || m.id !== id) return [m]
+      if (!m.text.trim() && !m.reasoning.trim() && !m.error) return []
+      return [{ ...m, streaming: false }]
+    }),
+  )
+}
+
 on('message.interim', e => {
   if (e.session_id !== liveSid) return
-  const id = ensureStreamingAssistant()
-  if (id && typeof e.payload?.text === 'string') patchAssistant(id, m => ({ ...m, text: m.text + e.payload!.text }))
+  const p = e.payload
+  const text = typeof p?.text === 'string' ? p.text : ''
+  // Interim seals a segment. With already_streamed the text is already on
+  // screen via message.delta — appending it again duplicated the answer.
+  if (text && !p?.already_streamed) {
+    const id = ensureStreamingAssistant()
+    if (id) patchAssistant(id, m => ({ ...m, text: m.text.trim() ? m.text : text }))
+  }
+  sealStreamingAssistant()
 })
 
 const liveTools = new Map<string, { id: string; name: string; argsText: string }>()
@@ -411,6 +430,7 @@ on('tool.start', e => {
   if (e.session_id !== liveSid) return
   const p = e.payload
   if (!p) return
+  sealStreamingAssistant()
   const name = p.name ?? 'tool'
   const args = (p.args ?? {}) as Record<string, unknown>
   const command = typeof args.command === 'string' ? args.command : ''
@@ -470,7 +490,15 @@ on('message.complete', e => {
   const status = p?.status
   const finalText = typeof p?.text === 'string' ? p.text : ''
   const errorText = status === 'error' ? (typeof p?.error === 'string' ? p.error : 'Error') : ''
-  const id = streamingAssistantId
+  let id = streamingAssistantId
+  if (!id && finalText.trim()) {
+    // The last segment was sealed (tool / interim): the final answer only
+    // gets its own bubble when it is not the text already shown.
+    const all = items.get()
+    const turnStart = all.findLastIndex(m => m.kind === 'user')
+    const shown = all.slice(turnStart + 1).some(m => m.kind === 'assistant' && m.text.trim() === finalText.trim())
+    if (!shown) id = ensureStreamingAssistant()
+  }
   if (id) {
     finishAssistant(id, finalText, errorText)
   } else {

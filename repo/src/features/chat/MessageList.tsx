@@ -177,14 +177,14 @@ function Group({ g }: { g: ReturnType<typeof groupItems>[number] }) {
       return (
         <div className="msg assistant">
           <div className="msg-bubble assistant">
-            {g.reasoning && (
+            {g.reasoning.trim() && g.reasoning.trim() !== g.text.trim() && (
               <details className="reasoning">
-                <summary>Pensando…</summary>
-                <div className="reasoning-body">{g.reasoning}</div>
+                <summary>{g.streaming && !g.text ? 'Pensando…' : 'Razonamiento'}</summary>
+                <div className="reasoning-body">{g.reasoning.trim()}</div>
               </details>
             )}
-            {g.text ? (
-              <Markdown text={g.text} />
+            {g.text.trim() ? (
+              <Markdown text={g.text.trim()} />
             ) : g.streaming ? (
               <span className="typing-dots">
                 <i /><i /><i />

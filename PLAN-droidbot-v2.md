@@ -7,6 +7,18 @@
 
 ---
 
+## 0. Revisiones (2026-10-24, verificadas contra el VPS)
+
+- **Contrato:** la fuente de verdad es `.hermes-ref/` (clon de hermes-agent fijado en `bf0203a`, igual al VPS), no la instalación local. Tipos RPC: el contrato generado de Hermes (`gateway-contract.generated.ts`), vendoreado junto con el cliente oficial (`src/lib/hermes/vendor/`).
+- **D2/D3 reemplazadas:** los grupos se manejan en el servidor (`groups.*` por `/api/ws`; `groups.capabilities.driver === true` en el VPS). Se usa un `HostedGroupEngine` (referencia: `apps/desktop/src/plugins/hermes-bots/canonical-groups.ts`). No hace falta `ClientGroupEngine` ni el lock en `ui_meta`. Ver `docs/research/phase-2-groups-contract.md`.
+- **Aprobaciones y clarify** son pedidos servidor→cliente (no eventos `*.request`). Ver `docs/research/phase-1-chat-contract.md` §4.
+- **Versión:** `/api/version` no existe en `hermes serve`; se usa `/api/health` (`commit`).
+- **Temas:** `hermes` (oscuro cálido + dorado) y `clean` (gris/blanco, acento tinta). Por defecto sigue al sistema.
+- **Distribución genérica (futura):** el CORS y el chequeo de Origin del WS de Hermes impiden usar una PWA desde otro dominio. Opciones: servirla en el mismo origen que Hermes (como en el VPS con Caddy) o como dashboard plugin (`/dashboard-plugins/{name}/…`).
+- **Deploy de prueba:** `droidbot.gabrielurrutia.com.ar` (VPS, Caddy → `/var/www/droidbot`).
+
+---
+
 ## 1. Objetivo
 
 Los pilares, por prioridad:

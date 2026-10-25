@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { useBack, useSlideNavigate } from '../../app/transition'
-import {
-  loadProbes,
-  probeSummary,
-  probeSummaryLabel,
-} from '../health/store'
-import type { ApprovalMode } from '../../lib/hermes/agent-control'
+import { ApplyToAllSheet } from '../bots/ApplyToAllSheet'
+import { BotScopedScreen } from '../bot-profile/BotScopedScreen'
+import { getToolsets, toggleToolset } from '../../lib/hermes/agent-control'
 import type { LiveSessionStatus } from '../../lib/hermes/vendor/gateway-contract.generated'
 import { Disclosure } from '../../ui/Disclosure'
-import { PageShell } from '../../ui/PageShell'
 import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
 import { StatusDot, type DotTone } from '../../ui/StatusDot'
@@ -17,19 +13,13 @@ import { Toggle } from '../../ui/Toggle'
 import { ConfirmSheet } from '../vault/ConfirmSheet'
 import {
   activeSessions,
-  approvalError,
-  approvalLoading,
-  approvalMode,
-  approvalSaving,
   computerUse,
   computerUseError,
   computerUseLoading,
   interruptBusy,
-  loadApproval,
+  loadActiveSessions,
   loadComputerUse,
-  loadControl,
   loadToolsets,
-  saveApproval,
   sessionsError,
   sessionsLoading,
   setToolset,
@@ -52,24 +42,17 @@ const SESSION_STATUS_LABELS: Record<LiveSessionStatus, string> = {
 
 const RUNNING_STATUSES: LiveSessionStatus[] = ['starting', 'waiting', 'working', 'streaming', 'resuming']
 
-const APPROVAL_OPTIONS: { mode: ApprovalMode; label: string }[] = [
-  { mode: 'manual', label: 'Siempre' },
-  { mode: 'smart', label: 'Inteligente' },
-  { mode: 'off', label: 'Nunca' },
-]
-
 function checkTone(status: string): DotTone {
   return status === 'pass' || status === 'ok' ? 'ok' : 'warn'
 }
 
-export function ControlPage() {
-  const back = useBack('/settings')
-  const { forward } = useSlideNavigate()
-  const healthTone = useStore(probeSummary)
-  const mode = useStore(approvalMode)
-  const approvalBusy = useStore(approvalLoading)
-  const approvalFail = useStore(approvalError)
-  const approvalPending = useStore(approvalSaving)
+/**
+ * Herramientas (per bot): the computer_use / browser toolset toggles for THIS
+ * bot (`/bots/:profile/tools`) plus its tasks in flight, with "Aplicar a
+ * todos mis bots" for the toggle pair.
+ */
+export function ToolsPage() {
+  const { profile = 'default' } = useParams()
 
   const cu = useStore(computerUse)
   const cuLoading = useStore(computerUseLoading)
@@ -86,11 +69,13 @@ export function ControlPage() {
   const stopping = useStore(interruptBusy)
 
   const [stopTarget, setStopTarget] = useState('')
+  const [applyOpen, setApplyOpen] = useState(false)
 
   useEffect(() => {
-    void loadControl()
-    void loadProbes()
-  }, [])
+    void loadToolsets(profile)
+    void loadComputerUse(profile)
+    void loadActiveSessions(profile)
+  }, [profile])
 
   const running = useMemo(
     () => sessions.filter(s => RUNNING_STATUSES.includes(s.status)),
@@ -99,67 +84,16 @@ export function ControlPage() {
   const cuRow = ts.find(row => row.name === 'computer_use')
   const browserRow = ts.find(row => row.name === 'browser')
 
-  const modeHint =
-    mode === 'manual'
-      ? 'Siempre pide aprobación antes de una acción riesgosa.'
-      : mode === 'smart'
-        ? 'Modo inteligente: pide en las riesgosas y resuelve solo las de bajo riesgo.'
-        : 'No pide aprobación: el bot ejecuta acciones riesgosas por su cuenta.'
-
   const cuReady = cu?.ready === true
   const cuDotTone: DotTone = cu == null ? 'neutral' : cuReady ? 'ok' : 'warn'
   const cuDotLabel = cu == null ? 'Sin información' : cuReady ? 'Listo' : 'Requiere configuración'
 
+  const cuEnabled = Boolean(cuRow?.enabled)
+  const browserEnabled = Boolean(browserRow?.enabled)
+  const togglesReady = !tsLoading && !tsError
+
   return (
-    <PageShell title="Control del agente" onBack={back}>
-      <Section label="Auto-review">
-        {approvalBusy ? (
-          <div style={{ padding: 'var(--space-4)' }}>
-            <Skeleton height={72} />
-          </div>
-        ) : approvalFail ? (
-          <div className="empty">
-            <p className="error-text">{approvalFail}</p>
-            <button className="btn" onClick={() => void loadApproval()}>
-              Reintentar
-            </button>
-          </div>
-        ) : (
-          <div className="control-auto">
-            <div className="control-row-title">Pedir aprobación para acciones riesgosas</div>
-            <div className="faint">shell, MCP, computadora</div>
-            <div className="control-hint">{modeHint}</div>
-            <div className="segmented" role="radiogroup" aria-label="Modo de aprobación">
-              {APPROVAL_OPTIONS.map(opt => (
-                <button
-                  key={opt.mode}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === opt.mode}
-                  className={mode === opt.mode ? 'segmented-item active' : 'segmented-item'}
-                  disabled={approvalPending}
-                  onClick={() => void saveApproval(opt.mode)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            {approvalPending && <span className="faint">Guardando…</span>}
-          </div>
-        )}
-      </Section>
-
-      <Section label="Sistema">
-        <Row
-          icon="bolt"
-          tint="accent"
-          title="Salud del sistema"
-          subtitle={<StatusDot tone={healthTone} label={probeSummaryLabel(healthTone)} />}
-          chevron
-          onClick={() => forward('/settings/health')}
-        />
-      </Section>
-
+    <BotScopedScreen profile={profile} title="Herramientas">
       <Section label="Computadora">
         {tsLoading ? (
           <div style={{ padding: 'var(--space-4)' }}>
@@ -169,7 +103,7 @@ export function ControlPage() {
         ) : tsError ? (
           <div className="empty">
             <p className="error-text">{tsError}</p>
-            <button className="btn" onClick={() => void loadToolsets()}>
+            <button className="btn" onClick={() => void loadToolsets(profile)}>
               Reintentar
             </button>
           </div>
@@ -184,8 +118,8 @@ export function ControlPage() {
               }
               trailing={
                 <Toggle
-                  checked={Boolean(cuRow?.enabled)}
-                  onChange={on => void setToolset('computer_use', on)}
+                  checked={cuEnabled}
+                  onChange={on => void setToolset(profile, 'computer_use', on)}
                   label="Control del computador"
                 />
               }
@@ -195,8 +129,8 @@ export function ControlPage() {
               title="Navegador"
               trailing={
                 <Toggle
-                  checked={Boolean(browserRow?.enabled)}
-                  onChange={on => void setToolset('browser', on)}
+                  checked={browserEnabled}
+                  onChange={on => void setToolset(profile, 'browser', on)}
                   label="Navegador"
                 />
               }
@@ -208,7 +142,7 @@ export function ControlPage() {
         {!cuLoading && cuError && (
           <div className="empty">
             <p className="error-text">{cuError}</p>
-            <button className="btn" onClick={() => void loadComputerUse()}>
+            <button className="btn" onClick={() => void loadComputerUse(profile)}>
               Reintentar
             </button>
           </div>
@@ -250,6 +184,19 @@ export function ControlPage() {
         )}
       </Section>
 
+      {togglesReady && (
+        <Section>
+          <Row
+            icon="grid"
+            tint="accent"
+            title="Aplicar estas herramientas a todos mis bots"
+            subtitle="Control del computador y navegador, con el estado actual"
+            chevron
+            onClick={() => setApplyOpen(true)}
+          />
+        </Section>
+      )}
+
       <Section label="Tarea en curso">
         {sessionsBusy ? (
           <div style={{ padding: 'var(--space-4)' }}>
@@ -258,7 +205,7 @@ export function ControlPage() {
         ) : sessionsFail ? (
           <div className="empty">
             <p className="error-text">{sessionsFail}</p>
-            <button className="btn" onClick={() => void loadControl()}>
+            <button className="btn" onClick={() => void loadActiveSessions(profile)}>
               Reintentar
             </button>
           </div>
@@ -288,9 +235,23 @@ export function ControlPage() {
         )}
       </Section>
 
-      <Section label="Pantalla">
-        <Row title="Ver pantalla y tomar el control" value="Próximamente" />
-      </Section>
+      <ApplyToAllSheet
+        open={applyOpen}
+        onClose={() => setApplyOpen(false)}
+        title="Aplicar estas herramientas a todos mis bots"
+        itemLabel="el estado de las herramientas"
+        exclude={profile}
+        checkConfigured={async name => {
+          const rows = await getToolsets(name)
+          const cu = rows.find(r => r.name === 'computer_use')
+          const browser = rows.find(r => r.name === 'browser')
+          return cu?.enabled === cuEnabled && browser?.enabled === browserEnabled
+        }}
+        applyOne={async name => {
+          await toggleToolset('computer_use', cuEnabled, name)
+          await toggleToolset('browser', browserEnabled, name)
+        }}
+      />
 
       <ConfirmSheet
         open={stopTarget !== ''}
@@ -302,9 +263,9 @@ export function ControlPage() {
         onConfirm={() => {
           const id = stopTarget
           setStopTarget('')
-          void stopSession(id)
+          void stopSession(profile, id)
         }}
       />
-    </PageShell>
+    </BotScopedScreen>
   )
 }

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useStore } from '@nanostores/react'
 import { useParams } from 'react-router-dom'
+import { useStore } from '@nanostores/react'
 import { useBack } from '../../app/transition'
+import { ApplyToAllSheet } from '../bots/ApplyToAllSheet'
+import { BotScopedScreen } from '../bot-profile/BotScopedScreen'
+import { getEnvVars, setEnvVar } from '../../lib/hermes/credentials'
 import { vaultLabel } from '../../lib/hermes/vault-labels'
 import { vaultBrandName } from './vault-brand'
 import { BrandIcon } from '../../ui/BrandIcon'
-import { PageShell } from '../../ui/PageShell'
 import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
 import { StatusDot } from '../../ui/StatusDot'
@@ -14,8 +16,8 @@ import { envError, envLoading, envVars, loadEnvVars, removeVar, saveVar } from '
 import './vault.css'
 
 export function VaultKeyPage() {
-  const back = useBack('/settings/vault')
-  const { key = '' } = useParams()
+  const { profile = 'default', key = '' } = useParams()
+  const back = useBack(`/bots/${encodeURIComponent(profile)}/vault`)
   const vars = useStore(envVars)
   const loading = useStore(envLoading)
   const error = useStore(envError)
@@ -28,9 +30,15 @@ export function VaultKeyPage() {
   const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState('')
 
+  // The last value the user TYPED and saved in this screen (memory only).
+  // "Aplicar a todos mis bots" fans this exact string out — never a value
+  // read back from the server (/api/env/reveal is never called).
+  const [lastValue, setLastValue] = useState('')
+  const [applyOpen, setApplyOpen] = useState(false)
+
   useEffect(() => {
-    void loadEnvVars()
-  }, [])
+    void loadEnvVars(profile)
+  }, [profile, key])
 
   const info = useMemo(() => vars?.[key], [vars, key])
   const label = info ? vaultLabel(key, info) : key
@@ -43,7 +51,8 @@ export function VaultKeyPage() {
     setSaveError('')
     setSaving(true)
     try {
-      await saveVar(key, value)
+      await saveVar(profile, key, value)
+      setLastValue(value)
       setValue('')
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
@@ -57,7 +66,7 @@ export function VaultKeyPage() {
   async function onDelete() {
     setRemoving(true)
     try {
-      await removeVar(key)
+      await removeVar(profile, key)
       back()
     } catch (e) {
       setRemoveError(e instanceof Error ? e.message : 'No se pudo borrar la variable.')
@@ -67,7 +76,7 @@ export function VaultKeyPage() {
   }
 
   return (
-    <PageShell title={label} onBack={back}>
+    <BotScopedScreen profile={profile} title={label}>
       {loading ? (
         <div className="list">
           <Skeleton width="50%" />
@@ -77,7 +86,7 @@ export function VaultKeyPage() {
       ) : error ? (
         <div className="empty">
           <p className="error-text">{error}</p>
-          <button className="btn" onClick={() => void loadEnvVars()}>
+          <button className="btn" onClick={() => void loadEnvVars(profile)}>
             Reintentar
           </button>
         </div>
@@ -161,6 +170,19 @@ export function VaultKeyPage() {
             </div>
           </Section>
 
+          {lastValue && (
+            <Section>
+              <Row
+                icon="grid"
+                tint="accent"
+                title="Aplicar a todos mis bots"
+                subtitle="Carga la misma clave que acabás de guardar en los demás bots"
+                chevron
+                onClick={() => setApplyOpen(true)}
+              />
+            </Section>
+          )}
+
           {info.is_set && (
             <Section>
               <button
@@ -188,8 +210,20 @@ export function VaultKeyPage() {
             busy={removing}
             onConfirm={() => void onDelete()}
           />
+
+          <ApplyToAllSheet
+            open={applyOpen}
+            onClose={() => setApplyOpen(false)}
+            title="Aplicar a todos mis bots"
+            itemLabel={`la clave ${key}`}
+            exclude={profile}
+            checkConfigured={async name => (await getEnvVars(name))[key]?.is_set === true}
+            applyOne={async name => {
+              await setEnvVar(key, lastValue, name)
+            }}
+          />
         </>
       )}
-    </PageShell>
+    </BotScopedScreen>
   )
 }

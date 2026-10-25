@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useStore } from '@nanostores/react'
 import { APP_NAME } from '../../app/brand'
 import { useBack, useSlideNavigate } from '../../app/transition'
+import { activeProfile, featuredBotName } from '../home/store'
+import { loadProbes, probeSummary, probeSummaryLabel } from '../health/store'
 import { InstallSheet } from '../install/InstallSheet'
 import {
   canNativeInstall,
@@ -12,6 +14,7 @@ import {
 import { Disclosure } from '../../ui/Disclosure'
 import { PageShell } from '../../ui/PageShell'
 import { Row, Section } from '../../ui/Section'
+import { StatusDot } from '../../ui/StatusDot'
 import { Toggle } from '../../ui/Toggle'
 import {
   pushBusy,
@@ -41,15 +44,22 @@ export function SettingsPage() {
   const busy = useStore(pushBusy)
   const error = useStore(pushError)
   const tested = useStore(pushTested)
+  const healthTone = useStore(probeSummary)
+  const activeProfileName = useStore(activeProfile)
   const [draft, setDraft] = useState(url)
   const [saved, setSaved] = useState(false)
   const [installOpen, setInstallOpen] = useState(false)
 
   const showInstallRow = !isStandalone() && installablePlatform()
 
+  // The bot the per-bot hint row opens, and the one whose probes feed the
+  // Salud del servidor dot: the featured bot, else the server's active one.
+  const principal = featuredBotName() ?? activeProfileName ?? 'default'
+
   useEffect(() => {
     void refreshPushStatus()
-  }, [])
+    void loadProbes(principal)
+  }, [principal])
 
   async function onSave() {
     updateBackendUrl(draft)
@@ -93,30 +103,25 @@ export function SettingsPage() {
         </Section>
       )}
 
-      <Section label="Bot">
+      <Section label="Bots">
         <Row
           icon="grid"
           tint="accent"
-          title="Conectar aplicaciones"
-          subtitle="Apps, herramientas, habilidades y canales"
+          title="La configuración de cada bot está en su perfil"
+          subtitle="Aprobaciones, conexiones, bóveda y herramientas"
           chevron
-          onClick={() => forward('/connectors')}
+          onClick={() => forward(`/bots/${encodeURIComponent(principal)}`)}
         />
+      </Section>
+
+      <Section label="Servidor">
         <Row
-          icon="folder"
+          icon="bolt"
           tint="accent"
-          title="Bóveda"
-          subtitle="Claves de API y credenciales"
+          title="Salud del servidor"
+          subtitle={<StatusDot tone={healthTone} label={probeSummaryLabel(healthTone)} />}
           chevron
-          onClick={() => forward('/settings/vault')}
-        />
-        <Row
-          icon="monitor"
-          tint="accent"
-          title="Control del agente"
-          subtitle="Aprobaciones, computer use y tareas en curso"
-          chevron
-          onClick={() => forward('/settings/control')}
+          onClick={() => forward('/settings/health')}
         />
       </Section>
 

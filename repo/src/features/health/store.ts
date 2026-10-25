@@ -22,7 +22,12 @@ import {
   type Remediation,
 } from '../../lib/hermes/remediation'
 import type { DotTone } from '../../ui/StatusDot'
-import { activeProfile, loadActiveProfile } from '../home/store'
+
+/**
+ * Salud del servidor state. Every call takes the profile as an argument: the
+ * doctor and the instant probes run for the bot picked on the screen (default:
+ * the featured bot), never the server's active profile.
+ */
 
 // --- Instant probes (no doctor): computer-use status, browser/computer_use
 // toolsets, and the active model's credential presence. Loaded on open.
@@ -46,10 +51,6 @@ export const doctorError = atom<string>('')
 export const repairBusy = atom<string>('')
 export const repairError = atom<string>('')
 export const repairProgress = atom<string>('')
-
-function healthProfile(): string {
-  return activeProfile.get() || 'default'
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -88,12 +89,10 @@ async function resolveModelCredential(
   return { provider: provider || 'desconocido', envKey: null, isSet: null, label: provider || 'desconocido' }
 }
 
-export async function loadProbes(): Promise<void> {
+export async function loadProbes(profile: string): Promise<void> {
   probeLoading.set(true)
   probeError.set('')
   try {
-    await loadActiveProfile()
-    const profile = healthProfile()
     const [cu, ts, env] = await Promise.all([
       getComputerUseStatus(profile),
       getToolsets(profile),
@@ -118,7 +117,21 @@ export async function loadProbes(): Promise<void> {
   }
 }
 
-// --- Summary dot for the Control del agente row (worst of the instant probes).
+/**
+ * Switch the diagnosed bot: reset the doctor (its results belong to the
+ * previous profile), bump the run token so in-flight runs can't land, and
+ * reload the instant probes for the new one.
+ */
+export function switchHealthProfile(profile: string): void {
+  doctorRun++
+  doctorPhase.set('idle')
+  doctorResult.set(null)
+  doctorRaw.set('')
+  doctorError.set('')
+  void loadProbes(profile)
+}
+
+// --- Summary dot for the Ajustes row (worst of the instant probes).
 
 const TONE_RANK: Record<DotTone, number> = { neutral: 0, ok: 1, warn: 2, danger: 3 }
 
@@ -139,7 +152,7 @@ export function probeSummaryTone(): DotTone {
   return tone
 }
 
-/** Reactive summary dot for the Control del agente row. */
+/** Reactive summary dot for the Ajustes row. */
 export const probeSummary = computed([computerUse, toolsets, modelCredential], probeSummaryTone)
 
 export function probeSummaryLabel(tone: DotTone): string {
@@ -149,6 +162,10 @@ export function probeSummaryLabel(tone: DotTone): string {
 }
 
 // --- Doctor run.
+
+// A run token: switching the diagnosed bot bumps it so a doctor (or repair)
+// still in flight for the PREVIOUS profile can't overwrite the visible state.
+let doctorRun = 0
 
 /** Poll a background action every 1.2s until it exits (desktop convention). */
 async function pollAction(
@@ -172,19 +189,22 @@ async function pollAction(
   throw new Error('La acción tardó demasiado en terminar.')
 }
 
-export async function runDoctor(): Promise<void> {
+export async function runDoctor(profile: string): Promise<void> {
+  const runId = ++doctorRun
   doctorPhase.set('running')
   doctorError.set('')
   doctorResult.set(null)
   doctorRaw.set('')
   try {
-    const started = await spawnDoctor(healthProfile())
+    const started = await spawnDoctor(profile)
     if (!started.ok) throw new Error('El servidor no pudo iniciar el diagnóstico.')
     const status = await pollAction('doctor', 2000)
+    if (runId !== doctorRun) return
     doctorRaw.set(status.lines.join('\n'))
     doctorResult.set(parseDoctorOutput(status.lines))
     doctorPhase.set('done')
   } catch (e) {
+    if (runId !== doctorRun) return
     doctorError.set(e instanceof Error ? e.message : 'No se pudo ejecutar el diagnóstico.')
     doctorPhase.set('error')
   }
@@ -215,25 +235,28 @@ export function collectRemediations(): Remediation[] {
   return out.filter(r => (seen.has(r.id) ? false : (seen.add(r.id), true)))
 }
 
-export async function runRepair(remediation: Remediation): Promise<void> {
+export async function runRepair(profile: string, remediation: Remediation): Promise<void> {
   if (remediation.kind !== 'post-setup' && remediation.kind !== 'enable-toolset') return
+  const runId = doctorRun
   repairBusy.set(remediation.id)
   repairError.set('')
   repairProgress.set('')
   try {
     if (remediation.kind === 'post-setup') {
-      const started = await runToolsetPostSetup(remediation.toolset, remediation.key, healthProfile())
+      const started = await runToolsetPostSetup(remediation.toolset, remediation.key, profile)
       if (!started.ok) throw new Error('No se pudo iniciar la reparación.')
       await pollAction('tools-post-setup', 300, status => {
         const last = status.lines[status.lines.length - 1]
         if (last) repairProgress.set(last)
       })
     } else {
-      await toggleToolset(remediation.toolset, true, healthProfile())
+      await toggleToolset(remediation.toolset, true, profile)
     }
-    await loadProbes()
-    if (doctorResult.get()) await runDoctor()
+    if (runId !== doctorRun) return
+    await loadProbes(profile)
+    if (doctorResult.get()) await runDoctor(profile)
   } catch (e) {
+    if (runId !== doctorRun) return
     repairError.set(e instanceof Error ? e.message : 'No se pudo reparar.')
   } finally {
     repairBusy.set('')

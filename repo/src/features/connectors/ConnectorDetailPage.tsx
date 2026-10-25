@@ -7,12 +7,10 @@ import {
   isHubId,
   type Connector,
 } from '../../lib/hermes/connectors'
-import { activeProfile, loadActiveProfile } from '../home/store'
+import { BotScopedScreen } from '../bot-profile/BotScopedScreen'
 import { BrandIcon } from '../../ui/BrandIcon'
 import { StatusDot, type DotTone } from '../../ui/StatusDot'
-import { PageShell } from '../../ui/PageShell'
 import { Skeleton } from '../../ui/Skeleton'
-import { useBack } from '../../app/transition'
 import { McpSection } from './components/McpSection'
 import { MessagingSection } from './components/MessagingSection'
 import { PluginSection } from './components/PluginSection'
@@ -36,16 +34,10 @@ const STATUS_TONE: Record<Connector['status'], DotTone> = {
 }
 
 export function ConnectorDetailPage() {
-  const { family, id } = useParams()
-  const back = useBack('/connectors')
-  const profile = useStore(activeProfile)
+  const { profile = 'default', family, id } = useParams()
   const data = useStore(familyData)
 
   const connector = isConnectorFamily(family) ? findConnector(family, id) : undefined
-
-  useEffect(() => {
-    void loadActiveProfile()
-  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -58,28 +50,26 @@ export function ConnectorDetailPage() {
     await loadFamilyData(family, profile)
   }
 
-  if (!isConnectorFamily(family) || !id) {
-    return (
-      <PageShell title="Conector" onBack={back}>
+  const notFound = (body: 'skeleton' | 'missing') => (
+    <BotScopedScreen profile={profile} title="Conector">
+      {body === 'skeleton' ? (
+        <div className="list">
+          <Skeleton />
+          <Skeleton width={200} />
+          <Skeleton width={160} />
+        </div>
+      ) : (
         <p className="muted">Conector no encontrado.</p>
-      </PageShell>
-    )
+      )}
+    </BotScopedScreen>
+  )
+
+  if (!isConnectorFamily(family) || !id) {
+    return notFound('missing')
   }
 
   if (!connector) {
-    return (
-      <PageShell title="Conector" onBack={back}>
-        {data[family] === undefined ? (
-          <div className="list">
-            <Skeleton />
-            <Skeleton width={200} />
-            <Skeleton width={160} />
-          </div>
-        ) : (
-          <p className="muted">Conector no encontrado.</p>
-        )}
-      </PageShell>
-    )
+    return notFound(data[family] === undefined ? 'skeleton' : 'missing')
   }
 
   const messagingPlatform =
@@ -88,9 +78,9 @@ export function ConnectorDetailPage() {
       : undefined
 
   return (
-    <PageShell
+    <BotScopedScreen
+      profile={profile}
       title={connector.name}
-      onBack={back}
       actions={<StatusDot tone={STATUS_TONE[connector.status]} label={STATUS_LABELS[connector.status]} />}
     >
       <div className="detail-head">
@@ -149,6 +139,6 @@ export function ConnectorDetailPage() {
       )}
 
       {connector.family === 'messaging' && !messagingPlatform && <p className="muted">Sin datos del canal.</p>}
-    </PageShell>
+    </BotScopedScreen>
   )
 }

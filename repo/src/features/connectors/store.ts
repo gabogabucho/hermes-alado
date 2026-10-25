@@ -8,12 +8,18 @@ import {
 } from '../../lib/hermes/connectors'
 import { errorMessage } from '../../lib/hermes/connectors/api'
 
+/**
+ * Conexiones catalog state. Every call takes the profile as an argument: the
+ * catalog answers for the bot it was opened for (the route's `:profile`),
+ * never the server's active profile.
+ */
+
 export const connectors = atom<Connector[]>([])
 export const catalogLoading = atom(false)
 export const familyData = atom<FamilyData>({})
 export const familyErrors = atom<Partial<Record<ConnectorFamily, string>>>({})
 
-export async function loadCatalogData(profile?: string): Promise<void> {
+export async function loadCatalogData(profile: string): Promise<void> {
   catalogLoading.set(true)
   try {
     const res = await loadCatalog(profile)
@@ -25,7 +31,7 @@ export async function loadCatalogData(profile?: string): Promise<void> {
   }
 }
 
-export async function loadFamilyData(family: ConnectorFamily, profile?: string): Promise<void> {
+export async function loadFamilyData(family: ConnectorFamily, profile: string): Promise<void> {
   try {
     const res = await loadFamily(family, profile)
     const current = connectors.get().filter(c => c.family !== family)

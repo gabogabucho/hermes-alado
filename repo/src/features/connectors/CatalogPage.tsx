@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { useBack, useSlideNavigate } from '../../app/transition'
+import { useSlideNavigate } from '../../app/transition'
 import {
   CONNECTOR_FAMILIES,
   FAMILY_LABELS,
@@ -10,11 +11,10 @@ import {
   type ConnectorFamily,
   type FamilyData,
 } from '../../lib/hermes/connectors'
-import { activeProfile, loadActiveProfile } from '../home/store'
+import { BotScopedScreen } from '../bot-profile/BotScopedScreen'
 import { Badge } from '../../ui/StatusDot'
 import { BrandIcon } from '../../ui/BrandIcon'
 import { Icon } from '../../ui/Icon'
-import { PageShell } from '../../ui/PageShell'
 import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
 import { catalogLoading, connectors, familyData, familyErrors, loadCatalogData, loadFamilyData } from './store'
@@ -37,19 +37,14 @@ function connectorUrl(c: Connector, data: FamilyData): string | null {
 }
 
 export function CatalogPage() {
-  const back = useBack('/settings')
+  const { profile = 'default' } = useParams()
   const { forward } = useSlideNavigate()
   const list = useStore(connectors)
   const loading = useStore(catalogLoading)
   const data = useStore(familyData)
   const errors = useStore(familyErrors)
-  const profile = useStore(activeProfile)
   const [query, setQuery] = useState('')
   const [chip, setChip] = useState<ChipSelection>({ kind: 'all' })
-
-  useEffect(() => {
-    void loadActiveProfile()
-  }, [])
 
   useEffect(() => {
     void loadCatalogData(profile)
@@ -107,7 +102,9 @@ export function CatalogPage() {
           <span className="connect-btn">Conectar</span>
         )
       }
-      onClick={() => forward(`/connectors/${c.family}/${encodeURIComponent(c.id)}`)}
+      onClick={() =>
+        forward(`/bots/${encodeURIComponent(profile)}/connectors/${c.family}/${encodeURIComponent(c.id)}`)
+      }
     />
   )
 
@@ -123,9 +120,9 @@ export function CatalogPage() {
   )
 
   return (
-    <PageShell
+    <BotScopedScreen
+      profile={profile}
       title="Conexiones"
-      onBack={back}
       actions={<Badge>{activeCount} activos</Badge>}
     >
       <input
@@ -212,6 +209,6 @@ export function CatalogPage() {
               )}
             </>
           )}
-    </PageShell>
+    </BotScopedScreen>
   )
 }

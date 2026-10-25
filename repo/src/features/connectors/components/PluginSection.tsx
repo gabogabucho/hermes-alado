@@ -63,7 +63,7 @@ export function PluginSection({
     setBusy('remove')
     try {
       await removePlugin(name, profile)
-      navigate('/connectors')
+      navigate(`/bots/${encodeURIComponent(profile ?? 'default')}/connectors`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo eliminar.')
       setBusy('')

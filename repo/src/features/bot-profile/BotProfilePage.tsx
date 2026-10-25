@@ -34,8 +34,9 @@ import './bot-profile.css'
 
 /**
  * Bot profile (GrokBot screen 6): halo hero + Editar, and one grouped
- * section of icon-tile rows — Programando, Rutinas, Biblioteca, Computadora
- * (live `display.status` dot) and the Notificaciones toggle — plus the
+ * section of icon-tile rows — Aprobaciones, Computadora (live
+ * `display.status` dot), Conexiones, Bóveda, Herramientas, Rutinas,
+ * Biblioteca, Programando and the Notificaciones toggle — plus the
  * bottom "Eliminar bot" danger row.
  */
 export function BotProfilePage() {
@@ -134,37 +135,13 @@ export function BotProfilePage() {
           </div>
 
           <Section>
-            {statsLoading ? (
-              <div style={{ padding: 'var(--space-4)' }}>
-                <Skeleton height={52} />
-                <Skeleton height={52} />
-              </div>
-            ) : (
-              <>
-                <Row
-                  icon="bolt"
-                  tint="accent"
-                  title="Programando"
-                  value={workersLabel}
-                  chevron
-                  onClick={() => forward(`/bots/${enc}/working`)}
-                />
-                <Row
-                  icon="calendar"
-                  tint="accent"
-                  title="Rutinas"
-                  value={routinesLabel}
-                  chevron
-                  onClick={() => forward(`/bots/${enc}/routines`)}
-                />
-              </>
-            )}
             <Row
-              icon="folder"
+              icon="check"
               tint="accent"
-              title="Biblioteca"
+              title="Aprobaciones"
+              subtitle="Cuándo el bot te pide permiso"
               chevron
-              onClick={() => forward(`/bots/${enc}/library`)}
+              onClick={() => forward(`/bots/${enc}/approvals`)}
             />
             <Row
               icon="monitor"
@@ -174,6 +151,60 @@ export function BotProfilePage() {
               chevron
               onClick={() => forward(`/bots/${enc}/computer`)}
             />
+            <Row
+              icon="grid"
+              tint="accent"
+              title="Conexiones"
+              subtitle="Apps, herramientas, habilidades y canales"
+              chevron
+              onClick={() => forward(`/bots/${enc}/connectors`)}
+            />
+            <Row
+              icon="folder"
+              tint="accent"
+              title="Bóveda"
+              subtitle="Claves de API y credenciales"
+              chevron
+              onClick={() => forward(`/bots/${enc}/vault`)}
+            />
+            <Row
+              icon="keyboard"
+              tint="accent"
+              title="Herramientas"
+              subtitle="Computador y navegador"
+              chevron
+              onClick={() => forward(`/bots/${enc}/tools`)}
+            />
+            <Row
+              icon="calendar"
+              tint="accent"
+              title="Rutinas"
+              value={routinesLabel}
+              chevron
+              onClick={() => forward(`/bots/${enc}/routines`)}
+            />
+            <Row
+              icon="folder"
+              tint="accent"
+              title="Biblioteca"
+              chevron
+              onClick={() => forward(`/bots/${enc}/library`)}
+            />
+            {statsLoading ? (
+              <div style={{ padding: 'var(--space-4)' }}>
+                <Skeleton height={52} />
+                <Skeleton height={52} />
+              </div>
+            ) : (
+              <Row
+                icon="bolt"
+                tint="accent"
+                title="Programando"
+                value={workersLabel}
+                chevron
+                onClick={() => forward(`/bots/${enc}/working`)}
+              />
+            )}
             <Row
               icon="bell"
               tint="accent"

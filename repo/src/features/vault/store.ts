@@ -9,7 +9,12 @@ import {
   type CredentialPoolResponse,
   type EnvVarInfo,
 } from '../../lib/hermes/credentials'
-import { activeProfile, loadActiveProfile } from '../home/store'
+
+/**
+ * Bóveda screen state. EVERY call takes the profile as an argument: the
+ * screen acts on the bot it was opened for (the route's `:profile`), never on
+ * the server's active profile.
+ */
 
 export const envVars = atom<Record<string, EnvVarInfo> | null>(null)
 export const envLoading = atom<boolean>(true)
@@ -19,15 +24,11 @@ export const pool = atom<CredentialPoolResponse | null>(null)
 export const poolLoading = atom<boolean>(true)
 export const poolError = atom<string>('')
 
-export function vaultProfile(): string {
-  return activeProfile.get() || 'default'
-}
-
-export async function loadEnvVars(): Promise<void> {
+export async function loadEnvVars(profile: string): Promise<void> {
   envLoading.set(true)
   envError.set('')
   try {
-    const res = await getEnvVars(vaultProfile())
+    const res = await getEnvVars(profile)
     envVars.set(res)
   } catch (e) {
     envError.set(e instanceof Error ? e.message : 'No se pudieron cargar las credenciales')
@@ -36,11 +37,11 @@ export async function loadEnvVars(): Promise<void> {
   }
 }
 
-export async function loadPool(): Promise<void> {
+export async function loadPool(profile: string): Promise<void> {
   poolLoading.set(true)
   poolError.set('')
   try {
-    const res = await getCredentialPool(vaultProfile())
+    const res = await getCredentialPool(profile)
     pool.set(res)
   } catch (e) {
     poolError.set(e instanceof Error ? e.message : 'No se pudo cargar el grupo de credenciales')
@@ -49,27 +50,31 @@ export async function loadPool(): Promise<void> {
   }
 }
 
-export async function loadVault(): Promise<void> {
-  await loadActiveProfile()
-  await Promise.all([loadEnvVars(), loadPool()])
+export async function saveVar(profile: string, key: string, value: string): Promise<void> {
+  await setEnvVar(key, value, profile)
+  await loadEnvVars(profile)
 }
 
-export async function saveVar(key: string, value: string): Promise<void> {
-  await setEnvVar(key, value, vaultProfile())
-  await loadEnvVars()
+export async function removeVar(profile: string, key: string): Promise<void> {
+  await deleteEnvVar(key, profile)
+  await loadEnvVars(profile)
 }
 
-export async function removeVar(key: string): Promise<void> {
-  await deleteEnvVar(key, vaultProfile())
-  await loadEnvVars()
+export async function addPoolEntry(
+  profile: string,
+  provider: string,
+  apiKey: string,
+  label: string,
+): Promise<void> {
+  await addCredentialPoolEntry(provider, apiKey, label, profile)
+  await loadPool(profile)
 }
 
-export async function addPoolEntry(provider: string, apiKey: string, label: string): Promise<void> {
-  await addCredentialPoolEntry(provider, apiKey, label, vaultProfile())
-  await loadPool()
-}
-
-export async function removePoolEntry(provider: string, index: number): Promise<void> {
-  await removeCredentialPoolEntry(provider, index, vaultProfile())
-  await loadPool()
+export async function removePoolEntry(
+  profile: string,
+  provider: string,
+  index: number,
+): Promise<void> {
+  await removeCredentialPoolEntry(provider, index, profile)
+  await loadPool(profile)
 }

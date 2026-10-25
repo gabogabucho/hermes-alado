@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@nanostores/react'
-import { useBack, useSlideNavigate } from '../../app/transition'
+import { useSlideNavigate, useBack } from '../../app/transition'
 import type { CheckStatus } from '../../lib/hermes/doctor-output'
 import { PREPARER_COMMAND } from '../../lib/hermes/preparer'
 import type { Remediation } from '../../lib/hermes/remediation'
+import type { ProfileRow } from '../../lib/hermes/rpc-types'
+import { ensureAppearances, useBotAppearance } from '../bots/appearance-store'
+import {
+  activeProfile,
+  activeResolved,
+  featuredBotName,
+  homeProfiles,
+  loadHome,
+} from '../home/store'
+import { botDisplayName } from '../bot-profile/store'
+import { Avatar } from '../../ui/Avatar'
 import { Disclosure } from '../../ui/Disclosure'
 import { PageShell } from '../../ui/PageShell'
 import { Row, Section } from '../../ui/Section'
@@ -27,6 +38,7 @@ import {
   repairProgress,
   runDoctor,
   runRepair,
+  switchHealthProfile,
   toolsets,
 } from './store'
 import './health.css'
@@ -151,8 +163,41 @@ function RemediationCard({
 }
 
 export function HealthPage() {
-  const back = useBack('/settings/control')
   const { forward } = useSlideNavigate()
+  const back = useBack('/settings')
+  const rows = useStore(homeProfiles)
+  const active = useStore(activeProfile)
+
+  // The bot being diagnosed: the featured bot by default (the principal bot
+  // when unset), changeable via the picker chips. The doctor + probes run for
+  // THIS profile (explicit arg) — never the server's active profile.
+  const [profile, setProfile] = useState(() => featuredBotName() ?? 'default')
+
+  // Settle the default once the roster AND the server's active profile have
+  // arrived (deep links start without either): featured → active → first row.
+  // Afterwards only a missing bot is replaced. Adjusted during render (React's
+  // "storing information from previous renders" pattern) so no effect fires a
+  // cascading render. A manual pick wins over the settle.
+  const activeReady = useStore(activeResolved)
+  const [settled, setSettled] = useState(false)
+  const [picked, setPicked] = useState(false)
+  const [prevRows, setPrevRows] = useState(rows)
+  const [prevReady, setPrevReady] = useState(activeReady)
+  const ready = activeReady || featuredBotName() !== null
+  if (rows !== prevRows || ready !== prevReady) {
+    setPrevRows(rows)
+    setPrevReady(ready)
+    if (rows.length > 0) {
+      if (!settled && ready && !picked) {
+        setSettled(true)
+        const desired = featuredBotName() ?? active
+        if (desired && rows.some(r => r.name === desired)) setProfile(desired)
+        else if (!rows.some(r => r.name === profile)) setProfile(rows[0].name)
+      } else if (settled && !rows.some(r => r.name === profile)) {
+        setProfile(rows[0].name)
+      }
+    }
+  }
 
   const probesLoading = useStore(probeLoading)
   const probesError = useStore(probeError)
@@ -167,8 +212,13 @@ export function HealthPage() {
   const docError = useStore(doctorError)
 
   useEffect(() => {
-    void loadProbes()
+    ensureAppearances()
+    if (homeProfiles.get().length === 0) void loadHome()
   }, [])
+
+  useEffect(() => {
+    switchHealthProfile(profile)
+  }, [profile])
 
   const areas = useMemo(() => (result ? groupDoctorAreas(result) : []), [result])
   const remediations = collectRemediations()
@@ -195,8 +245,19 @@ export function HealthPage() {
       : 'Sin problemas'
     : ''
 
+  const enc = encodeURIComponent(profile)
+  const vaultUrl = (key: string) => `/bots/${enc}/vault/${encodeURIComponent(key)}`
+
   return (
-    <PageShell title="Salud del sistema" onBack={back}>
+    <PageShell title="Salud del servidor" onBack={back}>
+      <BotPicker
+        value={profile}
+        onChange={name => {
+          setPicked(true)
+          setProfile(name)
+        }}
+      />
+
       <Section label="Diagnóstico">
         {phase === 'idle' && (
           <Row
@@ -204,7 +265,7 @@ export function HealthPage() {
             tint="accent"
             title="Ejecutar diagnóstico"
             subtitle="Revisa credenciales, herramientas, navegador y el servidor"
-            onClick={() => void runDoctor()}
+            onClick={() => void runDoctor(profile)}
           />
         )}
         {phase === 'running' && (
@@ -213,7 +274,7 @@ export function HealthPage() {
         {phase === 'error' && (
           <div className="empty">
             <p className="error-text">{docError}</p>
-            <button className="btn" onClick={() => void runDoctor()}>
+            <button className="btn" onClick={() => void runDoctor(profile)}>
               Reintentar
             </button>
           </div>
@@ -224,7 +285,7 @@ export function HealthPage() {
             title={summaryLabel}
             subtitle="Diagnóstico completo · tocá para repetir"
             trailing={<StatusDot tone={summaryTone} />}
-            onClick={() => void runDoctor()}
+            onClick={() => void runDoctor(profile)}
           />
         )}
       </Section>
@@ -268,7 +329,7 @@ export function HealthPage() {
         ) : probesError ? (
           <div className="empty">
             <p className="error-text">{probesError}</p>
-            <button className="btn" onClick={() => void loadProbes()}>
+            <button className="btn" onClick={() => void loadProbes(profile)}>
               Reintentar
             </button>
           </div>
@@ -313,7 +374,7 @@ export function HealthPage() {
               subtitle={browser.subtitle}
               trailing={<StatusDot tone={isSet ? 'ok' : 'neutral'} ariaLabel={isSet ? 'Configurado' : 'Sin configurar'} />}
               chevron
-              onClick={() => forward(`/settings/vault/${encodeURIComponent(browser.key)}`)}
+              onClick={() => forward(vaultUrl(browser.key))}
             />
           )
         })}
@@ -325,12 +386,59 @@ export function HealthPage() {
             <RemediationCard
               key={remediation.id}
               remediation={remediation}
-              onRepair={r => void runRepair(r)}
-              onOpenVault={key => forward(`/settings/vault/${encodeURIComponent(key)}`)}
+              onRepair={r => void runRepair(profile, r)}
+              onOpenVault={key => forward(vaultUrl(key))}
             />
           ))}
         </Section>
       )}
     </PageShell>
+  )
+}
+
+/** Chips with every bot; the selected one is the diagnosed profile. */
+function BotPicker({ value, onChange }: { value: string; onChange: (name: string) => void }) {
+  const rows = useStore(homeProfiles)
+  return (
+    <div className="chips-scroll" style={{ marginBottom: 'var(--space-3)' }}>
+      {rows.map(row => (
+        <PickerChip
+          key={row.name}
+          name={row.name}
+          row={row}
+          active={row.name === value}
+          onClick={() => {
+            if (row.name !== value) {
+              onChange(row.name)
+              switchHealthProfile(row.name)
+            }
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function PickerChip({
+  name,
+  row,
+  active,
+  onClick,
+}: {
+  name: string
+  row: ProfileRow | undefined
+  active: boolean
+  onClick: () => void
+}) {
+  const appearance = useBotAppearance(name)
+  return (
+    <button
+      type="button"
+      className={`chip health-bot-chip${active ? ' chip-active' : ''}`}
+      onClick={onClick}
+    >
+      <Avatar name={name} size={20} appearance={appearance} />
+      {botDisplayName(row, name)}
+    </button>
   )
 }

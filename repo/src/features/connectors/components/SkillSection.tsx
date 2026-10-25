@@ -69,7 +69,9 @@ export function SkillSection({
       await installSkill(hubIdentifier(id), profile)
       setNote('Instalando desde el hub en el servidor…')
       await onChanged()
-      navigate(`/connectors/skills/${encodeURIComponent(name)}`)
+      navigate(
+        `/bots/${encodeURIComponent(profile ?? 'default')}/connectors/skills/${encodeURIComponent(name)}`,
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo instalar.')
     } finally {
@@ -97,7 +99,7 @@ export function SkillSection({
     setError('')
     try {
       await uninstallSkill(name, profile)
-      navigate('/connectors')
+      navigate(`/bots/${encodeURIComponent(profile ?? 'default')}/connectors`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo desinstalar.')
       setBusy('')

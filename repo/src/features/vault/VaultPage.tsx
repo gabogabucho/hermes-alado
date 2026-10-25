@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { useBack, useSlideNavigate } from '../../app/transition'
+import { useSlideNavigate } from '../../app/transition'
 import { isValidEnvVarName, type EnvVarInfo } from '../../lib/hermes/credentials'
 import { vaultLabel } from '../../lib/hermes/vault-labels'
 import { vaultBrandName } from './vault-brand'
 import { BrandIcon } from '../../ui/BrandIcon'
+import { BotScopedScreen } from '../bot-profile/BotScopedScreen'
 import { Disclosure } from '../../ui/Disclosure'
-import { PageShell } from '../../ui/PageShell'
 import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
 import { StatusDot } from '../../ui/StatusDot'
@@ -18,7 +19,6 @@ import {
   envVars,
   loadEnvVars,
   loadPool,
-  loadVault,
   pool,
   poolError,
   poolLoading,
@@ -40,7 +40,7 @@ function categoryLabel(category: string): string {
 }
 
 export function VaultPage() {
-  const back = useBack('/settings')
+  const { profile = 'default' } = useParams()
   const { forward } = useSlideNavigate()
   const vars = useStore(envVars)
   const loading = useStore(envLoading)
@@ -67,8 +67,8 @@ export function VaultPage() {
   const [poolAddBusy, setPoolAddBusy] = useState(false)
 
   useEffect(() => {
-    void loadVault()
-  }, [])
+    void Promise.all([loadEnvVars(profile), loadPool(profile)])
+  }, [profile])
 
   const { groups, advancedVars, customVars } = useMemo(() => {
     const byCat = new Map<string, [string, EnvVarInfo][]>()
@@ -95,12 +95,13 @@ export function VaultPage() {
   }, [vars])
 
   const providers = credPool?.providers ?? []
+  const enc = encodeURIComponent(profile)
 
   async function onRemove() {
     if (!removeTarget) return
     setBusyKey(`${removeTarget.provider}/${removeTarget.index}`)
     try {
-      await removePoolEntry(removeTarget.provider, removeTarget.index)
+      await removePoolEntry(profile, removeTarget.provider, removeTarget.index)
     } finally {
       setBusyKey('')
       setRemoveTarget(null)
@@ -126,7 +127,7 @@ export function VaultPage() {
     setCustomError('')
     setCustomBusy(true)
     try {
-      await saveVar(key, value)
+      await saveVar(profile, key, value)
       setCustomKey('')
       setCustomValue('')
     } catch (e) {
@@ -146,7 +147,7 @@ export function VaultPage() {
     setPoolAddError('')
     setPoolAddBusy(true)
     try {
-      await addPoolEntry(provider, apiKey, poolLabel.trim())
+      await addPoolEntry(profile, provider, apiKey, poolLabel.trim())
       setPoolProvider('')
       setPoolKey('')
       setPoolLabel('')
@@ -171,7 +172,7 @@ export function VaultPage() {
             ariaLabel={info.is_set ? 'Configurada' : 'Sin configurar'}
           />
         }
-        onClick={() => forward(`/settings/vault/${encodeURIComponent(key)}`)}
+        onClick={() => forward(`/bots/${enc}/vault/${encodeURIComponent(key)}`)}
       >
         <span className="row-key mono">{key}</span>
       </Row>
@@ -179,10 +180,10 @@ export function VaultPage() {
   }
 
   return (
-    <PageShell title="Bóveda" onBack={back}>
+    <BotScopedScreen profile={profile} title="Bóveda">
       <p className="page-subtitle">
-        Claves y tokens del bot. Solo se guardan o reemplazan: Hermes nunca muestra el valor real en un
-        teléfono.
+        Claves y tokens de este bot. Solo se guardan o reemplazan: Hermes nunca muestra el valor real
+        en un teléfono.
       </p>
 
       {loading ? (
@@ -195,7 +196,7 @@ export function VaultPage() {
       ) : error ? (
         <div className="empty">
           <p className="error-text">{error}</p>
-          <button className="btn" onClick={() => void loadEnvVars()}>
+          <button className="btn" onClick={() => void loadEnvVars(profile)}>
             Reintentar
           </button>
         </div>
@@ -230,7 +231,7 @@ export function VaultPage() {
             ) : poolFail ? (
               <div className="empty">
                 <p className="error-text">{poolFail}</p>
-                <button className="btn" onClick={() => void loadPool()}>
+                <button className="btn" onClick={() => void loadPool(profile)}>
                   Reintentar
                 </button>
               </div>
@@ -356,6 +357,6 @@ export function VaultPage() {
         busy={busyKey !== ''}
         onConfirm={() => void onRemove()}
       />
-    </PageShell>
+    </BotScopedScreen>
   )
 }

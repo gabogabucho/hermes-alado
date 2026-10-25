@@ -123,7 +123,7 @@ export function McpSection({
     setBusy('delete')
     try {
       await deleteMcpServer(name, profile)
-      navigate('/connectors')
+      navigate(`/bots/${encodeURIComponent(profile ?? 'default')}/connectors`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo desconectar.')
       setBusy('')

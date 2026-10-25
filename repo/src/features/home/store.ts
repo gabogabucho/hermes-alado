@@ -51,6 +51,9 @@ export const homeProfiles = atom<ProfileRow[]>([])
 
 export const activeProfile = atom<string>('default')
 
+/** True once `GET /api/profiles/active` answered (success or fallback). */
+export const activeResolved = atom<boolean>(false)
+
 /**
  * The principal ("destacado") bot is a per-device preference, not a secret, so
  * it lives in localStorage. It overrides `/api/profiles/active`; falling back
@@ -124,6 +127,8 @@ export async function loadActiveProfile(): Promise<void> {
     activeProfile.set(res.active || 'default')
   } catch {
     // non-fatal: fall back to "default"
+  } finally {
+    activeResolved.set(true)
   }
 }
 

@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@nanostores/react'
-import { useSlideNavigate } from '../../app/transition'
+import { useBack, useSlideNavigate } from '../../app/transition'
 import { isValidEnvVarName, type EnvVarInfo } from '../../lib/hermes/credentials'
-import { Icon } from '../../ui/Icon'
-import { IconButton } from '../../ui/IconButton'
-import { ListRow } from '../../ui/ListRow'
+import { vaultLabel } from '../../lib/hermes/vault-labels'
+import { BrandIcon } from '../../ui/BrandIcon'
+import { Disclosure } from '../../ui/Disclosure'
+import { PageShell } from '../../ui/PageShell'
+import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
+import { StatusDot } from '../../ui/StatusDot'
 import { ConfirmSheet } from './ConfirmSheet'
 import {
   addPoolEntry,
@@ -35,21 +38,9 @@ function categoryLabel(category: string): string {
   return CATEGORY_LABELS[category] ?? category.charAt(0).toUpperCase() + category.slice(1)
 }
 
-/** Group env rows by category (custom goes to its own section). */
-function groupByCategory(vars: Record<string, EnvVarInfo>): Map<string, [string, EnvVarInfo][]> {
-  const groups = new Map<string, [string, EnvVarInfo][]>()
-  for (const [key, info] of Object.entries(vars)) {
-    if (info.category === 'custom') continue
-    const bucket = groups.get(info.category) ?? []
-    bucket.push([key, info])
-    groups.set(info.category, bucket)
-  }
-  for (const rows of groups.values()) rows.sort(([a], [b]) => a.localeCompare(b))
-  return new Map([...groups.entries()].sort(([a], [b]) => categoryLabel(a).localeCompare(categoryLabel(b))))
-}
-
 export function VaultPage() {
-  const { back, forward } = useSlideNavigate()
+  const back = useBack('/settings')
+  const { forward } = useSlideNavigate()
   const vars = useStore(envVars)
   const loading = useStore(envLoading)
   const error = useStore(envError)
@@ -78,8 +69,30 @@ export function VaultPage() {
     void loadVault()
   }, [])
 
-  const groups = vars ? groupByCategory(vars) : new Map<string, [string, EnvVarInfo][]>()
-  const customVars = vars ? Object.entries(vars).filter(([, i]) => i.category === 'custom') : []
+  const { groups, advancedVars, customVars } = useMemo(() => {
+    const byCat = new Map<string, [string, EnvVarInfo][]>()
+    const advanced: [string, EnvVarInfo][] = []
+    const custom: [string, EnvVarInfo][] = []
+    for (const [key, info] of Object.entries(vars ?? {})) {
+      if (info.category === 'custom' || info.custom) {
+        custom.push([key, info])
+        continue
+      }
+      if (info.advanced || info.channel_managed) {
+        advanced.push([key, info])
+        continue
+      }
+      const bucket = byCat.get(info.category) ?? []
+      bucket.push([key, info])
+      byCat.set(info.category, bucket)
+    }
+    for (const rows of byCat.values()) rows.sort(([a], [b]) => a.localeCompare(b))
+    advanced.sort(([a], [b]) => a.localeCompare(b))
+    custom.sort(([a], [b]) => a.localeCompare(b))
+    const sorted = new Map([...byCat.entries()].sort(([a], [b]) => categoryLabel(a).localeCompare(categoryLabel(b))))
+    return { groups: sorted, advancedVars: advanced, customVars: custom }
+  }, [vars])
+
   const providers = credPool?.providers ?? []
 
   async function onRemove() {
@@ -143,15 +156,28 @@ export function VaultPage() {
     }
   }
 
+  function renderVarRow(key: string, info: EnvVarInfo) {
+    const label = vaultLabel(key, info)
+    return (
+      <Row
+        key={key}
+        leading={<BrandIcon name={info.provider || info.provider_label || key} url={info.url} size={28} />}
+        title={label}
+        trailing={
+          <StatusDot tone={info.is_set ? 'ok' : 'neutral'} label={info.is_set ? 'Configurada' : 'Sin configurar'} />
+        }
+        onClick={() => forward(`/settings/vault/${encodeURIComponent(key)}`)}
+      >
+        <span className="row-key mono">{key}</span>
+      </Row>
+    )
+  }
+
   return (
-    <div className="settings-page">
-      <header className="page-header glass">
-        <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
-        <h1 className="page-header-title">Bóveda</h1>
-      </header>
+    <PageShell title="Bóveda" onBack={back}>
       <p className="page-subtitle">
-        Claves y tokens del bot. Solo se guardan o reemplazan: Hermes nunca muestra el valor real
-        en un teléfono.
+        Claves y tokens del bot. Solo se guardan o reemplazan: Hermes nunca muestra el valor real en un
+        teléfono.
       </p>
 
       {loading ? (
@@ -170,39 +196,28 @@ export function VaultPage() {
         </div>
       ) : (
         <>
-          {groups.size === 0 && customVars.length === 0 ? (
+          {groups.size === 0 && advancedVars.length === 0 && customVars.length === 0 ? (
             <div className="empty">
               <p className="muted">No hay credenciales configuradas.</p>
             </div>
           ) : (
             [...groups.entries()].map(([category, rows]) => (
-              <section key={category} className="vault-section">
-                <h2 className="vault-section-title">{categoryLabel(category)}</h2>
-                <div className="list">
-                  {rows.map(([key, info]) => (
-                    <ListRow
-                      key={key}
-                      title={key}
-                      subtitle={info.description || undefined}
-                      trailing={
-                        <span className="vault-row-trailing">
-                          <span className="faint mono">{info.redacted_value ?? '—'}</span>
-                          <span className={`chip${info.is_set ? ' ok' : ''}`}>
-                            {info.is_set ? 'Guardada' : 'Sin valor'}
-                          </span>
-                        </span>
-                      }
-                      onClick={() => forward(`/settings/vault/${encodeURIComponent(key)}`)}
-                    />
-                  ))}
-                </div>
-              </section>
+              <Section key={category} label={categoryLabel(category)}>
+                {rows.map(([key, info]) => renderVarRow(key, info))}
+              </Section>
             ))
           )}
 
+          {advancedVars.length > 0 && (
+            <div className="advanced-block">
+              <Disclosure title={`Mostrar avanzadas (${advancedVars.length})`}>
+                <Section>{advancedVars.map(([key, info]) => renderVarRow(key, info))}</Section>
+              </Disclosure>
+            </div>
+          )}
+
           {/* Grupo de credenciales (auth.json credential_pool) */}
-          <section className="vault-section">
-            <h2 className="vault-section-title">Grupo de credenciales</h2>
+          <Section label="Grupo de credenciales">
             {poolBusy ? (
               <div className="list">
                 <Skeleton height={64} />
@@ -215,7 +230,9 @@ export function VaultPage() {
                 </button>
               </div>
             ) : providers.length === 0 ? (
-              <p className="muted">No hay claves agrupadas por proveedor.</p>
+              <p className="muted" style={{ padding: 'var(--space-3) var(--space-4)' }}>
+                No hay claves agrupadas por proveedor.
+              </p>
             ) : (
               providers.map(p => (
                 <div key={p.provider} className="vault-pool">
@@ -245,12 +262,53 @@ export function VaultPage() {
                 </div>
               ))
             )}
+          </Section>
 
-            <div className="card" style={{ marginTop: 10 }}>
-              <label className="faint">Agregar clave al grupo</label>
+          {/* Variables personalizadas */}
+          <Section label="Inicios de sesión de servicios">
+            {customVars.length === 0 ? (
+              <p className="muted" style={{ padding: 'var(--space-3) var(--space-4)' }}>
+                Ninguno todavía. Agregá abajo una variable como KEY=valor.
+              </p>
+            ) : (
+              customVars.map(([key, info]) => renderVarRow(key, info))
+            )}
+          </Section>
+
+          <Section label="Nueva variable">
+            <div className="card">
               <input
                 className="input"
-                style={{ marginTop: 6 }}
+                placeholder="NOMBRE (ej: MI_SERVICIO_TOKEN)"
+                autoCapitalize="characters"
+                spellCheck={false}
+                value={customKey}
+                onChange={e => setCustomKey(e.target.value)}
+              />
+              <input
+                className="input"
+                style={{ marginTop: 8 }}
+                type="password"
+                placeholder="Valor"
+                value={customValue}
+                onChange={e => setCustomValue(e.target.value)}
+              />
+              {customError && <p className="error-text">{customError}</p>}
+              <button
+                className="btn btn-primary btn-block"
+                style={{ marginTop: 10 }}
+                disabled={customBusy}
+                onClick={() => void onAddCustom()}
+              >
+                {customBusy ? 'Guardando…' : 'Guardar variable'}
+              </button>
+            </div>
+          </Section>
+
+          <Section label="Clave de proveedor">
+            <div className="card">
+              <input
+                className="input"
                 placeholder="Proveedor (ej: openai)"
                 value={poolProvider}
                 onChange={e => setPoolProvider(e.target.value)}
@@ -280,64 +338,7 @@ export function VaultPage() {
                 {poolAddBusy ? 'Guardando…' : 'Guardar clave'}
               </button>
             </div>
-          </section>
-
-          {/* Variables personalizadas */}
-          <section className="vault-section">
-            <h2 className="vault-section-title">Inicios de sesión de servicios</h2>
-            {customVars.length === 0 ? (
-              <p className="muted">Ninguno todavía. Agregá abajo una variable como KEY=valor.</p>
-            ) : (
-              <div className="list">
-                {customVars
-                  .sort(([a], [b]) => a.localeCompare(b))
-                  .map(([key, info]) => (
-                    <ListRow
-                      key={key}
-                      title={key}
-                      subtitle="Variable personalizada"
-                      trailing={
-                        <span className="vault-row-trailing">
-                          <span className="faint mono">{info.redacted_value ?? '—'}</span>
-                          <Icon name="chevron-right" />
-                        </span>
-                      }
-                      onClick={() => forward(`/settings/vault/${encodeURIComponent(key)}`)}
-                    />
-                  ))}
-              </div>
-            )}
-
-            <div className="card" style={{ marginTop: 10 }}>
-              <label className="faint">Nueva variable</label>
-              <input
-                className="input"
-                style={{ marginTop: 6 }}
-                placeholder="NOMBRE (ej: MI_SERVICIO_TOKEN)"
-                autoCapitalize="characters"
-                spellCheck={false}
-                value={customKey}
-                onChange={e => setCustomKey(e.target.value)}
-              />
-              <input
-                className="input"
-                style={{ marginTop: 8 }}
-                type="password"
-                placeholder="Valor"
-                value={customValue}
-                onChange={e => setCustomValue(e.target.value)}
-              />
-              {customError && <p className="error-text">{customError}</p>}
-              <button
-                className="btn btn-primary btn-block"
-                style={{ marginTop: 10 }}
-                disabled={customBusy}
-                onClick={() => void onAddCustom()}
-              >
-                {customBusy ? 'Guardando…' : 'Guardar variable'}
-              </button>
-            </div>
-          </section>
+          </Section>
         </>
       )}
 
@@ -350,6 +351,6 @@ export function VaultPage() {
         busy={busyKey !== ''}
         onConfirm={() => void onRemove()}
       />
-    </div>
+    </PageShell>
   )
 }

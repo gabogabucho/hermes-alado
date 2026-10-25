@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@nanostores/react'
 import { useParams } from 'react-router-dom'
-import { useSlideNavigate } from '../../app/transition'
-import { IconButton } from '../../ui/IconButton'
+import { useBack } from '../../app/transition'
+import { vaultLabel } from '../../lib/hermes/vault-labels'
+import { BrandIcon } from '../../ui/BrandIcon'
+import { PageShell } from '../../ui/PageShell'
+import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
+import { StatusDot } from '../../ui/StatusDot'
 import { ConfirmSheet } from './ConfirmSheet'
 import { envError, envLoading, envVars, loadEnvVars, removeVar, saveVar } from './store'
 import './vault.css'
 
 export function VaultKeyPage() {
-  const { back } = useSlideNavigate()
+  const back = useBack('/settings/vault')
   const { key = '' } = useParams()
   const vars = useStore(envVars)
   const loading = useStore(envLoading)
@@ -28,6 +32,7 @@ export function VaultKeyPage() {
   }, [])
 
   const info = useMemo(() => vars?.[key], [vars, key])
+  const label = info ? vaultLabel(key, info) : key
 
   async function onSave() {
     if (!value) {
@@ -61,12 +66,7 @@ export function VaultKeyPage() {
   }
 
   return (
-    <div className="settings-page">
-      <header className="page-header glass">
-        <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
-        <h1 className="page-header-title">Credencial</h1>
-      </header>
-
+    <PageShell title={label} onBack={back}>
       {loading ? (
         <div className="list">
           <Skeleton width="50%" />
@@ -86,85 +86,91 @@ export function VaultKeyPage() {
         </div>
       ) : (
         <>
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="row">
-              <div className="spacer">
-                <div className="vault-key-name">{key}</div>
-                <div className="faint">{info.description || 'Variable de entorno'}</div>
+          <Section>
+            <Row
+              leading={<BrandIcon name={info.provider || info.provider_label || key} url={info.url} size={28} />}
+              title={info.description || 'Variable de entorno'}
+              trailing={
+                <StatusDot tone={info.is_set ? 'ok' : 'neutral'} label={info.is_set ? 'Configurada' : 'Sin configurar'} />
+              }
+            >
+              <span className="row-key">{key}</span>
+            </Row>
+          </Section>
+
+          {info.is_set && info.redacted_value && (
+            <Section>
+              <div className="card" style={{ padding: 'var(--space-3) var(--space-4)' }}>
+                <div className="vault-key-redacted mono">{info.redacted_value}</div>
               </div>
-              <span className={`chip${info.is_set ? ' ok' : ''}`}>
-                {info.is_set ? 'Guardada' : 'Sin valor'}
-              </span>
-            </div>
-            {info.is_set && info.redacted_value && (
-              <div className="vault-key-redacted mono">{info.redacted_value}</div>
-            )}
-            {info.url && (
+            </Section>
+          )}
+
+          {info.url && (
+            <Section>
               <a
                 className="btn btn-block"
-                style={{ marginTop: 12, minHeight: 44 }}
                 href={info.url}
                 target="_blank"
                 rel="noreferrer"
               >
                 Conseguir clave
               </a>
-            )}
-          </div>
-
-          {info.tools.length > 0 && (
-            <div className="card" style={{ marginBottom: 14 }}>
-              <label className="faint">La usan</label>
-              <div className="vault-tools">
-                {info.tools.map(tool => (
-                  <span key={tool} className="chip">
-                    {tool}
-                  </span>
-                ))}
-              </div>
-            </div>
+            </Section>
           )}
 
-          <div className="card">
-            <label className="faint">
-              {info.is_set ? 'Reemplazar valor' : 'Guardar valor'} (el valor actual nunca se muestra)
-            </label>
-            <input
-              className="input"
-              style={{ marginTop: 6 }}
-              type={info.is_password ? 'password' : 'text'}
-              autoComplete="off"
-              placeholder={info.is_password ? 'Nuevo valor…' : 'Valor…'}
-              value={value}
-              onChange={e => setValue(e.target.value)}
-            />
-            {saveError && <p className="error-text">{saveError}</p>}
-            <button
-              className="btn btn-primary btn-block"
-              style={{ marginTop: 10, minHeight: 44 }}
-              disabled={saving || !value}
-              onClick={() => void onSave()}
-            >
-              {saving ? 'Guardando…' : saved ? 'Guardado ✓' : 'Guardar'}
-            </button>
-          </div>
+          {info.tools.length > 0 && (
+            <Section label="La usan">
+              <div className="card" style={{ padding: 'var(--space-3) var(--space-4)' }}>
+                <div className="vault-tools">
+                  {info.tools.map(tool => (
+                    <span key={tool} className="chip">
+                      {tool}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </Section>
+          )}
+
+          <Section label={info.is_set ? 'Reemplazar valor' : 'Guardar valor'}>
+            <div className="card">
+              <input
+                className="input"
+                type={info.is_password ? 'password' : 'text'}
+                autoComplete="off"
+                placeholder={info.is_password ? 'Nuevo valor…' : 'Valor…'}
+                value={value}
+                onChange={e => setValue(e.target.value)}
+              />
+              {saveError && <p className="error-text">{saveError}</p>}
+              <button
+                className="btn btn-primary btn-block"
+                style={{ marginTop: 10, minHeight: 44 }}
+                disabled={saving || !value}
+                onClick={() => void onSave()}
+              >
+                {saving ? 'Guardando…' : saved ? 'Guardado ✓' : 'Guardar'}
+              </button>
+            </div>
+          </Section>
 
           {info.is_set && (
-            <div className="card" style={{ marginTop: 14 }}>
-              <label className="faint">Peligro</label>
+            <Section>
               <button
                 className="btn btn-danger btn-block"
-                style={{ marginTop: 8, minHeight: 44 }}
+                style={{ minHeight: 44 }}
                 onClick={() => setConfirmOpen(true)}
               >
                 Borrar esta credencial
               </button>
               {removeError && <p className="error-text">{removeError}</p>}
-            </div>
+            </Section>
           )}
 
-          <p className="faint" style={{ marginTop: 16 }}>
-            Sin tarjetas de pago: la Bóveda solo guarda claves, tokens y logins de servicio.
+          <p className="faint" style={{ padding: '0 var(--space-1)' }}>
+            Sin tarjetas de pago: la Bóveda solo guarda claves, tokens y logins de servicio. El valor
+            actual nunca se muestra.
           </p>
 
           <ConfirmSheet
@@ -178,6 +184,6 @@ export function VaultKeyPage() {
           />
         </>
       )}
-    </div>
+    </PageShell>
   )
 }

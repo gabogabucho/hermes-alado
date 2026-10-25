@@ -1,32 +1,13 @@
 /* Bóveda — feature-local styles (semantic tokens only). */
 
-.vault-section {
-  margin-bottom: var(--space-5);
-}
-
-.vault-section-title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text-2);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 0 0 var(--space-3);
-}
-
-.vault-row-trailing {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
 .mono {
   font-family: var(--font-mono);
   font-size: 0.78rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 120px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .vault-pool {

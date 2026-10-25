@@ -11,6 +11,10 @@
 #              (<public-ip>.sslip.io through Caddy) or --access tailscale
 #   caddy      PWA cache headers via a marked block inside the domain site
 #   droidbot   atomic PWA install/update in /var/www/droidbot
+#   push       droidbot-push Hermes plugin (web push to the phone): copy
+#              hermes-plugin/droidbot_push to ~/.hermes/plugins/, install its
+#              pywebpush dependency into Hermes' Python, enable it as the hermes
+#              user and print the restart command (never restarts Hermes)
 #
 # Idempotent: re-running changes nothing that is already correct.
 # Diagnostics: --check (read-only, exit 0/1) and --check --json.
@@ -32,10 +36,18 @@
 #   - GET /api/auth/me → 401 without a session (hermes_cli/dashboard_auth/routes.py)
 #   - Chromium in ~/.hermes/tools/chromium-*/chrome-linux{64}/chrome
 #     (pm/paths.py, pm/packages.py)
+#   - `hermes plugins enable <name>` writes plugins.enabled and syncs the PM
+#     environment; plugins are opt-in, only 'enabled' plugins load
+#     (hermes_cli/plugins_cmd.py cmd_enable, pm/plugin_declarations.py —
+#     python_dependencies accepts version specifiers like "pywebpush>=2,<3")
+#   - Hermes' PM-managed Python: ~/.hermes/tools/python-*/bin/python (pm/packages.py
+#     Python.binary_rel) — the interpreter serve/gateway run with
+#   - plugin dashboard routes mount at /api/plugins/<name>/... with the dashboard
+#     session auth inherited; unauthenticated GETs get 401
 
 set -euo pipefail
 
-VERSION="2.0.0"
+VERSION="2.1.0"
 SCHEMA=2
 
 # --- Constants ------------------------------------------------------------------
@@ -65,6 +77,18 @@ TAILSCALE_SITE_BEGIN="# BEGIN droidbot-preparer:tailscale-site (managed — do n
 TAILSCALE_SITE_END="# END droidbot-preparer:tailscale-site"
 TAILSCALE_SITE_BEGIN_RE="^# BEGIN droidbot-preparer:tailscale-site"
 TAILSCALE_SITE_END_RE="^# END droidbot-preparer:tailscale-site"
+# Push plugin (backlog: Preparer: push module).
+PLUGIN_NAME="droidbot-push"        # manifest name: `hermes plugins enable` id
+PLUGIN_FOLDER="droidbot_push"      # folder name inside ~/.hermes/plugins/
+PLUGIN_DEP="pywebpush>=2,<3"       # pinned in plugin.yaml python_dependencies
+PUSH_ROUTE="/api/plugins/${PLUGIN_NAME}/vapid-public-key"
+
+# Directory of this script (empty when piped from stdin, e.g. curl | bash -s):
+# used only for the default --plugin-src.
+SCRIPT_DIR=""
+if [[ -n ${BASH_SOURCE[0]:-} && ${BASH_SOURCE[0]} != "bash" && ${BASH_SOURCE[0]} != "-" ]]; then
+  SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+fi
 
 # --- Global state ---------------------------------------------------------------
 CHECK=0
@@ -75,7 +99,8 @@ ARG_HERMES_USER=""
 ARG_DOMAIN=""
 ARG_DIST=""
 ARG_ACCESS=""
-MODULES=("browser" "botdesktop" "access" "caddy" "droidbot")
+ARG_PLUGIN_SRC=""
+MODULES=("browser" "botdesktop" "access" "caddy" "droidbot" "push")
 declare -A M_STATUS=() M_NOTE=() M_DETAIL=()
 APT_UPDATED=0
 SYSTEMD_AVAILABLE=0
@@ -99,6 +124,8 @@ TAILSCALE_BIN=""
 TAILSCALE_DNS=""
 CADDY_BIN=""
 CADDY_VERSION=""
+PLUGIN_SRC=""
+HERMES_PYTHON=""
 
 # --- Logging ---------------------------------------------------------------------
 info() { printf '[info] %s\n' "$*" >&2; }
@@ -1553,6 +1580,237 @@ check_droidbot() {
   fi
 }
 
+# --- Push module -------------------------------------------------------------------
+# Resolves Hermes' PM-managed Python (~/.hermes/tools/python-*/bin/python[3]), the
+# interpreter hermes serve/gateway run with — pywebpush must be importable from it.
+find_hermes_python() {
+  HERMES_PYTHON=""
+  local p
+  shopt -s nullglob
+  for p in "$HERMES_HOME"/tools/python-*/bin/python "$HERMES_HOME"/tools/python-*/bin/python3; do
+    if [[ -x $p ]]; then
+      HERMES_PYTHON=$p
+      break
+    fi
+  done
+  shopt -u nullglob
+  [[ -n $HERMES_PYTHON ]]
+}
+
+# Resolves the plugin source folder: --plugin-src wins; the default is the
+# hermes-plugin/droidbot_push folder next to the provisioner directory.
+resolve_plugin_src() {
+  local default_src="hermes-plugin/droidbot_push"
+  if [[ -n $SCRIPT_DIR ]]; then
+    default_src="$SCRIPT_DIR/../hermes-plugin/droidbot_push"
+  fi
+  if [[ -n $ARG_PLUGIN_SRC ]]; then
+    PLUGIN_SRC=$ARG_PLUGIN_SRC
+  else
+    PLUGIN_SRC=$default_src
+  fi
+  PLUGIN_SRC=$(cd "$PLUGIN_SRC" 2>/dev/null && pwd || printf '%s' "$PLUGIN_SRC")
+}
+
+plugin_source_valid() {
+  [[ -f $PLUGIN_SRC/plugin.yaml && -f $PLUGIN_SRC/__init__.py ]] \
+    && grep -qE "^name:[[:space:]]*${PLUGIN_NAME}[[:space:]]*$" "$PLUGIN_SRC/plugin.yaml"
+}
+
+# True when every file under <src> exists under <dst> with identical bytes.
+# Ignores anything in <dst> that is not in <src> (e.g. runtime __pycache__).
+tree_matches() {
+  local src=$1 dst=$2 rel sha_src sha_dst
+  [[ -d $src && -d $dst ]] || return 1
+  while IFS= read -r -d '' rel_path; do
+    rel=${rel_path#"$src"/}
+    [[ -f $dst/$rel ]] || return 1
+    sha_src=$(sha256sum "$rel_path" | awk '{print $1}')
+    sha_dst=$(sha256sum "$dst/$rel" 2>/dev/null | awk '{print $1}')
+    [[ -n $sha_src && $sha_src == "$sha_dst" ]] || return 1
+  done < <(find "$src" -type f -print0)
+  return 0
+}
+
+# True when `hermes plugins list --plain` shows the plugin as enabled.
+plugin_enabled() {
+  hermes_cmd hermes plugins list --plain 2>/dev/null \
+    | awk -v n="$PLUGIN_NAME" '$1 == "enabled" && $NF == n { found = 1 } END { exit !found }'
+}
+
+# True when pywebpush imports in Hermes' Python and its major version is >= 2.
+hermes_pywebpush_ok() {
+  hermes_cmd "$HERMES_PYTHON" -c 'import pywebpush, sys
+try:
+    major = int(str(getattr(pywebpush, "__version__", "0")).split(".")[0])
+except Exception:
+    major = 0
+sys.exit(0 if major >= 2 else 1)' >/dev/null 2>&1
+}
+
+# HTTP code of an unauthenticated GET of the plugin route (read-only probe).
+push_route_probe() {
+  local code=""
+  code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 \
+    "http://127.0.0.1:${HERMES_PORT}${PUSH_ROUTE}" 2>/dev/null || true)
+  printf '%s' "$code"
+}
+
+# True when the probe code means the route is mounted: 401 (auth gate),
+# 200 (no auth gate), 503 (mounted but plugin not initialized yet).
+route_mounted() {
+  case "$1" in
+    200 | 401 | 503) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+mod_push() {
+  if (( CHECK )); then
+    check_push
+    return
+  fi
+
+  local target="$HERMES_HOME/plugins/$PLUGIN_FOLDER"
+
+  if ! plugin_source_valid; then
+    set_status push fail "no droidbot-push plugin source at ${PLUGIN_SRC} (plugin.yaml with 'name: ${PLUGIN_NAME}' required)"
+    manual "copy hermes-plugin/droidbot_push from the repo to the VPS and pass --plugin-src <path>"
+    manual "once published on GitHub: hermes plugins install <git-url> --yes-deps --enable"
+    M_DETAIL[push]=$(cat <<EOF
+"installed":$([[ -f $target/plugin.yaml ]] && echo true || echo false),"enabled":false,"source":$(printf '%s' "$PLUGIN_SRC" | json_escape | sed 's/^/"/;s/$/"/'),"python":null,"pywebpush_ok":false,"route_mounted":false,"probe":null
+EOF
+    )
+    M_DETAIL[push]=$(printf '%s' "${M_DETAIL[push]}" | tr -d '\n\t')
+    return
+  fi
+
+  # 1. Copy the plugin (root-owned ops + chown: the default source may live under
+  # /root, unreadable by the hermes user; the copy must end up hermes-owned).
+  if tree_matches "$PLUGIN_SRC" "$target"; then
+    info "push: plugin already up to date at ${target}"
+  else
+    cmd mkdir -p "$HERMES_HOME/plugins"
+    cmd rm -rf "$target.droidbot-stage"
+    if ! cmd cp -r "$PLUGIN_SRC" "$target.droidbot-stage"; then
+      set_status push fail "could not copy the plugin source to ${target}"
+      manual "cp -r '${PLUGIN_SRC}' '${HERMES_HOME}/plugins/${PLUGIN_FOLDER}'"
+      return
+    fi
+    cmd chown -R "$HERMES_USER:" "$target.droidbot-stage"
+    cmd rm -rf "$target"
+    cmd mv "$target.droidbot-stage" "$target"
+    info "push: plugin copied to ${target}"
+  fi
+
+  # 2. Python dependency into Hermes' Python (temporary until the plugin is
+  # published on GitHub; then: hermes plugins install <git-url> --yes-deps).
+  if ! find_hermes_python; then
+    set_status push fail "no Hermes-managed Python found (${HERMES_HOME}/tools/python-*/bin/python)"
+    manual "runuser -u ${HERMES_USER} -- hermes pm install python"
+    return
+  fi
+  if hermes_pywebpush_ok; then
+    info "push: ${PLUGIN_DEP} already available in Hermes' Python (${HERMES_PYTHON})"
+  elif (( DRY )); then
+    run_hermes "$HERMES_PYTHON" -m pip install --quiet "$PLUGIN_DEP"
+  elif run_hermes "$HERMES_PYTHON" -m pip install --quiet "$PLUGIN_DEP" >/dev/null 2>&1; then
+    info "push: ${PLUGIN_DEP} installed into Hermes' Python (${HERMES_PYTHON})"
+  else
+    set_status push fail "${PLUGIN_DEP} could not be installed into Hermes' Python"
+    manual "runuser -u ${HERMES_USER} -- ${HERMES_PYTHON} -m pip install '${PLUGIN_DEP}'"
+    return
+  fi
+
+  # 3. Enable as the hermes user (idempotent: reports 'already enabled').
+  if plugin_enabled; then
+    info "push: plugin already enabled"
+  elif (( DRY )); then
+    run_hermes hermes plugins enable "$PLUGIN_NAME"
+  elif run_hermes hermes plugins enable "$PLUGIN_NAME" >/dev/null 2>&1; then
+    info "push: plugin enabled (hermes plugins enable ${PLUGIN_NAME})"
+  else
+    warn "push: 'hermes plugins enable ${PLUGIN_NAME}' failed"
+    manual "runuser -u ${HERMES_USER} -- hermes plugins enable ${PLUGIN_NAME}"
+    manual "runuser -u ${HERMES_USER} -- hermes plugins list   # discovery/dependency admission"
+  fi
+
+  # 4. Restart hint (the plugin and its routes load at process start; never restarts).
+  info "restart Hermes to load the plugin and mount ${PUSH_ROUTE}:"
+  hermes_restart_hint
+
+  local installed=false enabled=false pyok=false
+  [[ -f $target/plugin.yaml ]] && installed=true
+  plugin_enabled && enabled=true
+  find_hermes_python && hermes_pywebpush_ok && pyok=true
+
+  local probe="" mounted=false
+  if (( !DRY )); then
+    probe=$(push_route_probe)
+    route_mounted "$probe" && mounted=true
+  fi
+
+  M_DETAIL[push]=$(cat <<EOF
+"installed":${installed},"enabled":${enabled},"source":$(printf '%s' "$PLUGIN_SRC" | json_escape | sed 's/^/"/;s/$/"/'),"python":$(printf '%s' "${HERMES_PYTHON:-null}" | json_escape | sed 's/^/"/;s/$/"/'),"pywebpush_ok":${pyok},"route_mounted":${mounted},"probe":$(printf '%s' "${probe:-null}" | json_escape | sed 's/^/"/;s/$/"/')
+EOF
+  )
+  M_DETAIL[push]=$(printf '%s' "${M_DETAIL[push]}" | tr -d '\n\t')
+
+  if (( DRY )); then
+    set_status push ok "(rehearsal) plugin copied, ${PLUGIN_DEP} installed and plugin enabled — restart Hermes after the real run"
+    return
+  fi
+  if $installed && $enabled && $pyok && $mounted; then
+    set_status push ok "routes mounted — GET ${PUSH_ROUTE} → ${probe} (unauthenticated)"
+  elif $installed && $enabled && $pyok; then
+    set_status push warn "installed and enabled, but the routes are not mounted yet — restart Hermes (see [manual] above)"
+  else
+    set_status push fail "push setup incomplete (installed=${installed}, enabled=${enabled}, pywebpush_ok=${pyok})"
+  fi
+}
+
+check_push() {
+  local target="$HERMES_HOME/plugins/$PLUGIN_FOLDER"
+  local installed=false enabled=false pyok=false
+  [[ -f $target/plugin.yaml ]] && installed=true
+  plugin_enabled && enabled=true
+  find_hermes_python && hermes_pywebpush_ok && pyok=true
+
+  local probe="" mounted=false
+  if (( !DRY )); then
+    probe=$(push_route_probe)
+    route_mounted "$probe" && mounted=true
+  fi
+
+  M_DETAIL[push]=$(cat <<EOF
+"installed":${installed},"enabled":${enabled},"source":null,"python":$(printf '%s' "${HERMES_PYTHON:-null}" | json_escape | sed 's/^/"/;s/$/"/'),"pywebpush_ok":${pyok},"route_mounted":${mounted},"probe":$(printf '%s' "${probe:-null}" | json_escape | sed 's/^/"/;s/$/"/')
+EOF
+  )
+  M_DETAIL[push]=$(printf '%s' "${M_DETAIL[push]}" | tr -d '\n\t')
+
+  if ! $installed; then
+    set_status push unknown "plugin not installed at ${target} — apply the push module"
+    manual "sudo bash prepare.sh push --plugin-src <path-to-hermes-plugin/droidbot_push>"
+    return
+  fi
+  if ! $enabled; then
+    set_status push fail "plugin installed but not enabled"
+    manual "runuser -u ${HERMES_USER} -- hermes plugins enable ${PLUGIN_NAME}"
+    return
+  fi
+  if ! $pyok; then
+    set_status push fail "${PLUGIN_DEP} missing from Hermes' Python"
+    manual "runuser -u ${HERMES_USER} -- ${HERMES_PYTHON:-<hermes-python>} -m pip install '${PLUGIN_DEP}'"
+    return
+  fi
+  if ! $mounted; then
+    set_status push warn "installed and enabled, but the routes are not mounted — restart Hermes"
+    hermes_restart_hint
+    return
+  fi
+  set_status push ok "routes mounted — GET ${PUSH_ROUTE} → ${probe} (unauthenticated)"
+}
+
 # --- Output --------------------------------------------------------------------------
 print_summary() {
   printf '\n== Summary ==\n'
@@ -1641,7 +1899,7 @@ usage() {
   cat <<EOF
 Usage: prepare.sh [flags] [module...]
 
-Modules: browser botdesktop access caddy droidbot  (or --all)
+Modules: browser botdesktop access caddy droidbot push  (or --all)
 
 Flags:
   --check                Diagnostics only (changes nothing). Exit 0 = all OK, 1 = problems.
@@ -1653,12 +1911,15 @@ Flags:
   --access <mode>        HTTPS without your own domain: 'sslip' (default without --domain)
                          or 'tailscale'. Ignored when --domain is given.
   --dist <path|url>      PWA tar.gz for the droidbot module.
+  --plugin-src <path>    droidbot-push plugin source folder for the push module
+                         (default: hermes-plugin/droidbot_push next to this script).
   -h, --help             This help.
 
 Examples:
   prepare.sh --all --domain droidbot.gabrielurrutia.com.ar --dist ./dist.tar.gz
   prepare.sh --all --access sslip      # <public-ip>.sslip.io + Caddy cert
   prepare.sh --all --access tailscale  # https://<machine>.<tailnet>.ts.net
+  prepare.sh push                      # plugin from hermes-plugin/droidbot_push
   prepare.sh --check --json
   prepare.sh --check browser botdesktop
 EOF
@@ -1667,7 +1928,7 @@ EOF
 # --- Main -----------------------------------------------------------------------------
 main() {
   local opts
-  opts=$(getopt -o h -l check,json,all,dry-run,hermes-user:,domain:,dist:,access:,help -- "$@") \
+  opts=$(getopt -o h -l check,json,all,dry-run,hermes-user:,domain:,dist:,access:,plugin-src:,help -- "$@") \
     || { usage; exit 2; }
   eval set -- "$opts"
 
@@ -1681,6 +1942,7 @@ main() {
       --domain) ARG_DOMAIN=$2; shift 2 ;;
       --dist) ARG_DIST=$2; shift 2 ;;
       --access) ARG_ACCESS=$2; shift 2 ;;
+      --plugin-src) ARG_PLUGIN_SRC=$2; shift 2 ;;
       -h | --help) usage; exit 0 ;;
       --) shift; break ;;
     esac
@@ -1730,6 +1992,8 @@ main() {
   find_cua_driver || true
   detect_hermes_units
   find_caddy
+  resolve_plugin_src
+  find_hermes_python || true
 
   local needs_access=0
   local m
@@ -1757,6 +2021,7 @@ main() {
       access) mod_access ;;
       caddy) mod_caddy ;;
       droidbot) mod_droidbot ;;
+      push) mod_push ;;
     esac
   done
 

@@ -11,10 +11,10 @@ import { Skeleton } from '../../ui/Skeleton'
 import { StatusDot, type DotTone } from '../../ui/StatusDot'
 import { Toggle } from '../../ui/Toggle'
 import { ensureAppearances, useBotAppearance } from '../bots/appearance-store'
+import { computerDetail, computerRowStatus, loadComputer } from '../computer/store'
 import { homeLoading, homeProfiles } from '../home/store'
 import {
   botDisplayName,
-  computerStatus,
   loadProfileStats,
   profileStatsLoading,
   routinesCount,
@@ -25,7 +25,7 @@ import './bot-profile.css'
 /**
  * Bot profile (GrokBot screen 6): halo hero + Editar, and one grouped
  * section of icon-tile rows — Programando, Rutinas, Biblioteca, Computadora
- * (status dot) and the Notificaciones toggle.
+ * (live `display.status` dot) and the Notificaciones toggle.
  */
 export function BotProfilePage() {
   const { profile = 'default' } = useParams()
@@ -36,13 +36,14 @@ export function BotProfilePage() {
   const statsLoading = useStore(profileStatsLoading)
   const workers = useStore(workersCount)
   const routines = useStore(routinesCount)
-  const computer = useStore(computerStatus)
+  const computer = useStore(computerDetail)
   const appearance = useBotAppearance(profile)
   const [notifOpen, setNotifOpen] = useState(false)
 
   useEffect(() => {
     ensureAppearances()
     void loadProfileStats(profile)
+    void loadComputer(profile)
   }, [profile])
 
   const row = rows.find(r => r.name === profile)
@@ -52,8 +53,10 @@ export function BotProfilePage() {
 
   const workersLabel = workers === null ? '—' : `${workers} trabajando`
   const routinesLabel = routines === null ? '—' : `${routines} activadas`
-  const computerTone: DotTone = computer === 'active' ? 'ok' : 'neutral'
-  const computerLabel = computer === 'active' ? 'Activo' : computer === 'inactive' ? 'Inactivo' : '—'
+  const computerState = computerRowStatus(computer)
+  const computerTone: DotTone = computerState === 'active' ? 'ok' : computerState === 'not-installed' ? 'warn' : 'neutral'
+  const computerLabel =
+    computerState === 'active' ? 'Activo' : computerState === 'inactive' ? 'Inactivo' : computerState === 'not-installed' ? 'Sin instalar' : '—'
 
   const enc = encodeURIComponent(profile)
 
@@ -121,7 +124,7 @@ export function BotProfilePage() {
               title="Computadora"
               subtitle={<StatusDot tone={computerTone} label={computerLabel} />}
               chevron
-              onClick={() => forward('/settings/control')}
+              onClick={() => forward(`/bots/${enc}/computer`)}
             />
             <Row
               icon="bell"

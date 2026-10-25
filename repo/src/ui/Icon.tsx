@@ -24,6 +24,9 @@ export type IconName =
   | 'arrow-up'
   | 'copy'
   | 'upload'
+  | 'trash'
+  | 'keyboard'
+  | 'power'
 
 // 24px grid, 1.75 stroke, currentColor.
 const PATHS: Record<IconName, ReactElement> = {
@@ -105,6 +108,27 @@ const PATHS: Record<IconName, ReactElement> = {
     </>
   ),
   upload: <path d="M12 21V9M6 15l6-6 6 6" />,
+  trash: (
+    <>
+      <path d="M4 7h16" />
+      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      <path d="M6.5 7l.8 12.2A1.5 1.5 0 0 0 8.8 20.5h6.4a1.5 1.5 0 0 0 1.5-1.3L17.5 7" />
+      <path d="M10 11v6M14 11v6" />
+    </>
+  ),
+  keyboard: (
+    <>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M7 10h.01M10.5 10h.01M14 10h.01M17.5 10h.01" />
+      <path d="M7 14h10" />
+    </>
+  ),
+  power: (
+    <>
+      <path d="M12 3v8" />
+      <path d="M6.3 6.8a8 8 0 1 0 11.4 0" />
+    </>
+  ),
 }
 
 export function Icon({

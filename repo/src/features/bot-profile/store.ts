@@ -15,14 +15,11 @@ export interface ProfileBotMeta extends BotMeta {
  *   - workers:  `GET /api/plugins/kanban/workers/active?profile=` (plugin missing → null)
  *   - routines: enabled cron jobs (`GET /api/cron/jobs?profile=`) + enabled
  *     webhook subscriptions (`GET /api/webhooks?profile=`)
- *   - computer: `GET /api/tools/computer-use/status?profile=` → ready true/false
+ * The Computadora row is served by `display.status` (features/computer/store).
  */
-
-export type ComputerStatus = 'active' | 'inactive'
 
 export const workersCount = atom<null | number>(null)
 export const routinesCount = atom<null | number>(null)
-export const computerStatus = atom<null | ComputerStatus>(null)
 export const profileStatsLoading = atom<boolean>(false)
 
 interface KanbanWorker {
@@ -43,9 +40,6 @@ interface WebhookRoute {
 interface WebhooksResult {
   enabled?: boolean
   subscriptions?: WebhookRoute[]
-}
-interface ComputerUseStatus {
-  ready?: boolean | null
 }
 
 async function loadWorkers(name: string): Promise<void> {
@@ -87,21 +81,10 @@ async function loadRoutines(name: string): Promise<void> {
   routinesCount.set(answered ? count : null)
 }
 
-async function loadComputer(name: string): Promise<void> {
-  try {
-    const res = await apiFetch<ComputerUseStatus>(
-      `/api/tools/computer-use/status?profile=${encodeURIComponent(name)}`,
-    )
-    computerStatus.set(res.ready === true ? 'active' : res.ready === false ? 'inactive' : null)
-  } catch {
-    computerStatus.set(null)
-  }
-}
-
 export async function loadProfileStats(name: string): Promise<void> {
   profileStatsLoading.set(true)
   try {
-    await Promise.all([loadWorkers(name), loadRoutines(name), loadComputer(name)])
+    await Promise.all([loadWorkers(name), loadRoutines(name)])
   } finally {
     profileStatsLoading.set(false)
   }

@@ -1,7 +1,9 @@
+import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { BotProfileEditPage } from '../features/bot-profile/BotProfileEditPage'
 import { BotProfilePage } from '../features/bot-profile/BotProfilePage'
 import { ChatPage } from '../features/chat/ChatPage'
+import { ComputerPage } from '../features/computer/ComputerPage'
 import { CatalogPage } from '../features/connectors/CatalogPage'
 import { ConnectorDetailPage } from '../features/connectors/ConnectorDetailPage'
 import { ControlPage } from '../features/control/ControlPage'
@@ -19,6 +21,10 @@ import { VaultKeyPage } from '../features/vault/VaultKeyPage'
 import { VaultPage } from '../features/vault/VaultPage'
 import { WorkingPage } from '../features/working/WorkingPage'
 import { ReconnectBanner } from './ReconnectBanner'
+
+// Lazy so @novnc/novnc never reaches the main bundle (MPL-2.0; ~half the
+// live-viewer chunk is the library).
+const ComputerLivePage = lazy(() => import('../features/computer/ComputerLivePage'))
 
 export function Shell() {
   return (
@@ -43,6 +49,21 @@ export function Shell() {
           <Route path="/bots/:profile/routines/:id" element={<RoutineDetailPage />} />
           <Route path="/bots/:profile/library" element={<LibraryPage />} />
           <Route path="/bots/:profile/working" element={<WorkingPage />} />
+          <Route path="/bots/:profile/computer" element={<ComputerPage />} />
+          <Route
+            path="/bots/:profile/computer/live"
+            element={
+              <Suspense
+                fallback={
+                  <div className="app-main centered">
+                    <span className="muted">Cargando…</span>
+                  </div>
+                }
+              >
+                <ComputerLivePage />
+              </Suspense>
+            }
+          />
           <Route path="/import" element={<ImportPage />} />
         </Routes>
       </div>

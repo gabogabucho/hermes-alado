@@ -36,7 +36,7 @@ function eventAuthor(event: RoomEvent, roster: Map<string, RoomMember>): string 
   if (event.kind === 'message.user') return 'Tú'
   const actor = event.actor as ActorWithName
   const member = actor.id ? roster.get(actor.id) : undefined
-  return actor.display_name || memberName(member) || actor.id || 'Bot'
+  return memberName(member) || actor.display_name || actor.id || 'Bot'
 }
 
 function noticeFor(event: RoomEvent): string | null {

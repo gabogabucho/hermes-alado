@@ -336,18 +336,6 @@ button {
   border-radius: var(--r-lg);
 }
 
-/* Soft gold halo behind the principal avatar (no thick ring). */
-.home-hero-halo {
-  position: absolute;
-  top: var(--space-2);
-  width: 220px;
-  height: 220px;
-  border-radius: var(--r-full);
-  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 68%);
-  pointer-events: none;
-  z-index: -1;
-}
-
 .home-hero-badge {
   display: inline-flex;
   align-items: center;

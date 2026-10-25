@@ -11,6 +11,7 @@ import { Skeleton } from '../../ui/Skeleton'
 import { ensureAppearances, useBotAppearance } from '../bots/appearance-store'
 import { homeLoading, homeProfiles } from '../home/store'
 import { ensureGroupsCapability, groupsAvailable } from './store'
+import { botDisplayName } from '../home/store'
 
 const MIN_MEMBERS = 2
 const MAX_MEMBERS = 6
@@ -76,7 +77,7 @@ export function NewGroupPage() {
     try {
       const { room } = await groupEngine.create(
         trimmed,
-        members.map(p => ({ profile: p.name, ...(p.display_name ? { displayName: p.display_name } : {}) })),
+        members.map(p => ({ profile: p.name, displayName: botDisplayName(p) })),
       )
       forward(`/group/${encodeURIComponent(room.room_id)}`)
     } catch (e) {
@@ -131,7 +132,7 @@ export function NewGroupPage() {
                   <Row
                     key={profile.name}
                     leading={<PickAvatar name={profile.name} />}
-                    title={profile.display_name || profile.name}
+                    title={botDisplayName(profile)}
                     subtitle={on ? 'En el grupo' : 'Tocá para agregar'}
                     trailing={
                       <span

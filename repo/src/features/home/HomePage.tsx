@@ -16,6 +16,7 @@ import { Sheet } from '../../ui/Sheet'
 import { Skeleton } from '../../ui/Skeleton'
 import {
   activeProfile,
+  featuredBot,
   featuredBotName,
   homeBots,
   homeError,
@@ -112,10 +113,11 @@ export function HomePage() {
     void loadHome()
   }, [])
 
+  const featuredName = useStore(featuredBot)
   const featured = useMemo(() => {
-    const name = featuredBotName()
+    const name = featuredName
     return (name && bots.find(b => b.name === name)) || bots.find(b => b.name === active) || bots[0]
-  }, [bots, active])
+  }, [bots, active, featuredName])
 
   const others = bots.filter(b => b.name !== featured?.name)
 

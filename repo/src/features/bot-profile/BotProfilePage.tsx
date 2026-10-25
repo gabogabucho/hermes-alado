@@ -70,7 +70,7 @@ export function BotProfilePage() {
       ) : (
         <>
           <div className="bp-hero">
-            <Avatar name={profile} size="xl" ring appearance={appearance} />
+            <Avatar name={profile} size="xl" appearance={appearance} />
             <span className="bp-name">{displayName}</span>
             <span className="bp-sub">{model || description || 'Bot'}</span>
             <button

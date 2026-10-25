@@ -14,18 +14,6 @@
   padding: var(--space-3) 0 var(--space-5);
 }
 
-/* Soft gold halo behind the profile avatar (same treatment as the home hero). */
-.bp-hero-halo {
-  position: absolute;
-  top: 0;
-  width: 220px;
-  height: 220px;
-  border-radius: var(--r-full);
-  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 68%);
-  pointer-events: none;
-  z-index: -1;
-}
-
 .bp-name {
   font-size: 1.35rem;
   font-weight: 700;

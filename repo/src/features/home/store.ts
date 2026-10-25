@@ -58,7 +58,7 @@ export const activeProfile = atom<string>('default')
  */
 const FEATURED_KEY = 'droidbot.featuredBot'
 
-export function featuredBotName(): string | null {
+function readFeatured(): string | null {
   try {
     return localStorage.getItem(FEATURED_KEY)
   } catch {
@@ -66,7 +66,15 @@ export function featuredBotName(): string | null {
   }
 }
 
+/** Reactive so the hero switches immediately when the user picks another bot. */
+export const featuredBot = atom<string | null>(readFeatured())
+
+export function featuredBotName(): string | null {
+  return featuredBot.get()
+}
+
 export function setFeaturedBot(name: string | null): void {
+  featuredBot.set(name)
   try {
     if (name) localStorage.setItem(FEATURED_KEY, name)
     else localStorage.removeItem(FEATURED_KEY)
@@ -125,7 +133,7 @@ function orderBots(rows: ProfileRow[]): ProfileRow[] {
     .sort((a, b) => (b.canonical_session?.last_active ?? 0) - (a.canonical_session?.last_active ?? 0))
   const withoutChat = rows
     .filter(r => !r.canonical_session)
-    .sort((a, b) => (a.display_name || a.name).localeCompare(b.display_name || b.name))
+    .sort((a, b) => (botTitle(a) || a.display_name || a.name).localeCompare(botTitle(b) || b.display_name || b.name))
   return [...withChat, ...withoutChat]
 }
 
@@ -153,11 +161,22 @@ function workerActiveAt(row: ProfileRow, now = Date.now()): boolean {
   return Boolean(ts && now / 1000 - ts < WORKER_ACTIVE_WINDOW_S)
 }
 
+/** The name the user gave the bot in DroidBot/Desktop (saved in ui_meta['hermes-bots'].title). */
+function botTitle(row: ProfileRow): string {
+  const meta = row.ui_meta?.['hermes-bots'] as { title?: unknown } | undefined
+  return typeof meta?.title === 'string' ? meta.title.trim() : ''
+}
+
+/** Name to show for a bot everywhere: its given title, else display_name, else the profile slug. */
+export function botDisplayName(row: ProfileRow): string {
+  return botTitle(row) || row.display_name || row.name
+}
+
 function toHomeBot(row: ProfileRow): HomeBot {
   const cs = row.canonical_session
   return {
     name: row.name,
-    displayName: row.display_name || row.name,
+    displayName: botTitle(row) || row.display_name || row.name,
     model: row.model ?? null,
     description: row.description ?? '',
     isDefault: Boolean(row.is_default),

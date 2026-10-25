@@ -4,13 +4,22 @@
 // canonical-room rendering (`canonical-group-activity.tsx`,
 // `canonical-group-history.tsx`).
 import type { RoomDriverStatus, RoomMember } from '../../lib/hermes/groups'
+import { botDisplayName, homeProfiles } from '../home/store'
 
 export type MemberPhase = 'queued' | 'working'
 
 /** The label a room log/member row shows for one roster row. */
 export function memberName(member: RoomMember | undefined): string {
   if (!member) return ''
-  return member.display_name || member.handle || member.member_id || ''
+  // Prefer the bot's CURRENT name (renames after the room was created must show up).
+  const live = liveBotName(member.profile || member.member_id)
+  return live || member.display_name || member.handle || member.member_id || ''
+}
+
+function liveBotName(profile: string | null | undefined): string {
+  if (!profile) return ''
+  const row = homeProfiles.get().find(p => p.name === profile)
+  return row ? botDisplayName(row) : ''
 }
 
 /** The profile name an avatar resolves against (appearances are keyed by

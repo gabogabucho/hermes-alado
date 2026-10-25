@@ -201,6 +201,12 @@
   position: relative;
   flex: 1;
   min-width: 0;
+  display: flex;
+}
+
+.group-composer-field .composer-input {
+  display: block;
+  width: 100%;
 }
 
 .group-composer-error {

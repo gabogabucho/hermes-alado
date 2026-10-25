@@ -105,7 +105,7 @@ function authorOf(event: RoomEvent, members: RoomMember[]): string {
   if (event.kind === 'message.user') return 'Tú'
   const actor = event.actor as RoomActor & { display_name?: string }
   const member = actor.id ? members.find(m => m.member_id === actor.id) : undefined
-  return actor.display_name || memberName(member) || actor.id || ''
+  return memberName(member) || actor.display_name || actor.id || ''
 }
 
 export async function refreshGroupRows(): Promise<void> {

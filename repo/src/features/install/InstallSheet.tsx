@@ -75,7 +75,11 @@ export function InstallSheet({
                 <Icon name="share" size={18} />
               </span>
               <span>
-                Abrí el menú del navegador{ios ? ': tocá <strong>Compartir</strong> en Safari.' : ' (⋮ o Compartir).'}
+                {ios ? (
+                  <>Tocá <strong>Compartir</strong> en Safari.</>
+                ) : (
+                  <>Abrí el menú <strong>⋮</strong> de Chrome y elegí <strong>“Instalar app”</strong>.</>
+                )}
               </span>
             </li>
             <li>

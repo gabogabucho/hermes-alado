@@ -1,0 +1,180 @@
+/* Unified connector catalog + shared detail screen. */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.page-header .pill {
+  margin-left: auto;
+}
+
+.detail-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  display: block;
+}
+
+.detail-family {
+  display: block;
+}
+
+.detail-description {
+  color: var(--text-2);
+  margin: 0 0 var(--space-4);
+  line-height: 1.45;
+}
+
+.connector-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-weight: 700;
+  user-select: none;
+}
+
+.catalog-search {
+  margin-bottom: var(--space-3);
+}
+
+.chip-row {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
+  scrollbar-width: none;
+}
+
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.chip-row .chip {
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.chip-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.connector-section {
+  margin-bottom: var(--space-5);
+}
+
+.connector-section > h2 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-3);
+}
+
+.connect-btn {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.connect-btn.connected {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--ok);
+}
+
+/* Dynamic config form */
+.config-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.config-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.config-required {
+  color: var(--danger);
+}
+
+.config-redacted {
+  margin-bottom: 2px;
+}
+
+/* QR pairing. A QR must be black-on-white to scan, so the wrap uses a fixed
+   white background regardless of theme (the only non-token color in the app). */
+.qr-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  background: #ffffff;
+  border-radius: var(--r-md);
+  padding: var(--space-4);
+}
+
+.qr-wrap svg {
+  display: block;
+}
+
+.qr-card .faint {
+  color: #555;
+}
+
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.onboarding .qr-card {
+  align-self: center;
+}
+
+/* Skill markdown preview */
+.skill-md {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--space-3);
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+}
+
+.tool-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  color: var(--text-2);
+}
+
+.tool-list li {
+  margin-bottom: 6px;
+}

@@ -156,8 +156,12 @@ async function findCanonical(): Promise<{ id: string; resolvedId: string } | nul
   return null
 }
 
+let openGeneration = 0
+
 export async function openChat(name: string, metaDisplayName?: string): Promise<void> {
   closeChat()
+  const generation = ++openGeneration
+  const stale = () => generation !== openGeneration
   profile = name
   displayName = metaDisplayName ?? name
   chatMeta.set({ name, displayName })
@@ -166,9 +170,11 @@ export async function openChat(name: string, metaDisplayName?: string): Promise<
 
   try {
     const existing = await findCanonical()
+    if (stale()) return
 
     if (existing) {
       const res = await request('session.resume', { session_id: existing.resolvedId, profile })
+      if (stale()) return
       liveSid = res.session_id
       storedId = res.stored_session_id ?? existing.id
       registerSessionProfile(liveSid, name)
@@ -184,8 +190,30 @@ export async function openChat(name: string, metaDisplayName?: string): Promise<
         hidden: true,
         follow_profile_config: true,
       })
+      if (stale()) return
       liveSid = created.session_id
       storedId = created.stored_session_id
+      // Eager title write, like the desktop's createCanonicalChat: session.create is lazy
+      // and the turn-start auto-titler would otherwise retitle the row ("Respondé solo…"),
+      // so the next open could no longer find "Bot Chat" and would fork a fresh chat.
+      try {
+        await request('session.title', { session_id: liveSid, title: CANONICAL_TITLE })
+      } catch {
+        // Uniqueness rejection = someone else holds "Bot Chat" now: adopt it (adopt-before-mint).
+        const winner = await findCanonical()
+        if (winner) {
+          const res = await request('session.resume', { session_id: winner.resolvedId, profile })
+          if (stale()) return
+          liveSid = res.session_id
+          storedId = res.stored_session_id ?? winner.id
+          registerSessionProfile(liveSid, name)
+          registerSessionProfile(String(storedId), name)
+          historyOffset = res.messages?.length ?? 0
+          items.set(normalizeHistory(res.messages ?? []))
+          void markRead()
+          return
+        }
+      }
       registerSessionProfile(liveSid, name)
       registerSessionProfile(String(storedId), name)
       items.set(normalizeHistory(created.messages ?? []))

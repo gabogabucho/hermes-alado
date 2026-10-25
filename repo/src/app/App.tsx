@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { BrowserRouter } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
 import { LoginPage } from '../features/auth/LoginPage'
@@ -11,6 +11,9 @@ import { Shell } from './Shell'
 
 export function App() {
   const status = useStore(authStatus)
+  // The boot effect owns the first connect; the login-retry effect below only
+  // acts after it, or both race and mint two tickets / two health checks.
+  const booted = useRef(false)
 
   // Boot (mount, once): `auth/me` and the single-use WS ticket are minted IN
   // PARALLEL (a 401 ticket just means logged out), then the socket dial starts
@@ -25,6 +28,7 @@ export function App() {
         void verifyContractCommit()
         void connect(state, state.mode === 'loopback' ? null : ticket)
       }
+      booted.current = true
     })()
     return () => {
       cancelled = true
@@ -36,7 +40,7 @@ export function App() {
   // "Reintentar" / Settings backend save). Reuses the state the retry just
   // resolved from `checkAuth()` — never a second auth/me.
   useEffect(() => {
-    if (status !== 'authed') return
+    if (status !== 'authed' || !booted.current) return
     const state = authState.get()
     if (!state || (state.mode !== 'gated' && state.mode !== 'loopback')) return
     void verifyContractCommit()

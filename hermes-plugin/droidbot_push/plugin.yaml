@@ -4,7 +4,7 @@ description: "Push notifications for DroidBot PWA: avisa al teléfono cuando un 
 author: "DroidBot"
 kind: standalone
 python_dependencies:
-  - pywebpush
+  - "pywebpush>=2,<3"
 provides_hooks:
   - on_session_end
   - pre_approval_request

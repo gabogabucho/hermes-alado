@@ -2,6 +2,7 @@ import { atom } from 'nanostores'
 import { apiFetch } from '../../lib/api'
 import { deliveryTargetFromCommand, parseAgentMessage, replyTextFromResult } from '../../lib/hermes/bot-to-bot'
 import { on, request } from '../../lib/hermes/connection'
+import { setSessionUnread } from '../../lib/hermes/session-mutations'
 import type { TranscriptMessage } from '../../lib/hermes/rpc-types'
 import { setVisibleProfile } from '../home/store'
 import { registerSessionProfile } from './requests'
@@ -289,10 +290,7 @@ async function markRead(): Promise<void> {
   const sid = storedId
   if (!sid) return
   try {
-    await apiFetch(`/api/sessions/${encodeURIComponent(sid)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ unread: false }),
-    })
+    await setSessionUnread(sid, false, profile)
   } catch {
     // non-fatal
   }

@@ -29,6 +29,12 @@ export function Composer() {
   const [recording, setRecording] = useState(false)
   const [recTime, setRecTime] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Shrink back to one line once the text is cleared (e.g. after sending).
+  useEffect(() => {
+    if (!text && inputRef.current) inputRef.current.style.height = ''
+  }, [text])
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -165,6 +171,7 @@ export function Composer() {
           onClick={() => fileRef.current?.click()}
         />
         <textarea
+          ref={inputRef}
           className="composer-input"
           placeholder="Mensaje…"
           rows={1}

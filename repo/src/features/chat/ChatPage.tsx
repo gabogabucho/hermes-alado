@@ -1,34 +1,99 @@
-import { useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
+import { useSlideNavigate } from '../../app/transition'
 import { Avatar } from '../../ui/Avatar'
+import { IconButton } from '../../ui/IconButton'
+import { Sheet } from '../../ui/Sheet'
+import { homeBots } from '../home/store'
 import { Composer } from './Composer'
 import { MessageList } from './MessageList'
-import { closeChat, messages, openChat, thinking } from './store'
+import { RequestCard } from './RequestCards'
+import { requests } from './requests'
+import {
+  chatMeta,
+  chatSessionId,
+  closeChat,
+  items,
+  openChat,
+  openError,
+  running,
+  setChatVisible,
+  stop,
+} from './store'
 
 export function ChatPage() {
-  const { name = 'default' } = useParams()
-  const navigate = useNavigate()
-  const list = useStore(messages)
-  const isThinking = useStore(thinking)
+  const { profile = 'default' } = useParams()
+  const { back } = useSlideNavigate()
+  const list = useStore(items)
+  const isRunning = useStore(running)
+  const cards = useStore(requests)
+  const meta = useStore(chatMeta)
+  const bots = useStore(homeBots)
+  const error = useStore(openError)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  const bot = bots.find(b => b.name === profile)
 
   useEffect(() => {
-    void openChat(name).catch(() => undefined)
-    return () => closeChat()
-  }, [name])
+    setChatVisible(true)
+    void openChat(profile, bot?.displayName).catch(() => undefined)
+    return () => {
+      setChatVisible(false)
+      closeChat()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile])
+
+  const sessionCards = cards.filter(c => c.sessionId === chatSessionId())
 
   return (
     <div className="chat-page">
-      <div className="chat-header">
-        <button className="btn ghost" onClick={() => navigate('/profiles')}>
-          ‹
+      <header className="chat-header glass">
+        <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
+        <button className="chat-header-identity" onClick={() => setSheetOpen(true)}>
+          <Avatar name={profile} size="sm" mood={isRunning ? 'thinking' : 'idle'} image={bot?.avatarUrl ?? null} />
+          <span className="chat-title">{meta.displayName || profile}</span>
         </button>
-        <Avatar name={name} size="sm" mood={isThinking ? 'thinking' : 'idle'} />
-        <span className="chat-title">{name}</span>
-        {isThinking && <span className="chip">pensando…</span>}
-      </div>
-      <MessageList messages={list} />
+        <span className="spacer" />
+        {isRunning ? (
+          <IconButton icon="stop" variant="glass" label="Detener" onClick={() => void stop()} />
+        ) : (
+          <IconButton icon="more" variant="ghost" label="Más" disabled />
+        )}
+      </header>
+
+      {sessionCards.length > 0 && (
+        <div className="request-cards">
+          {sessionCards.map(c => (
+            <RequestCard key={c.id} card={c} bot={meta.displayName || profile} />
+          ))}
+        </div>
+      )}
+
+      {error && list.length === 0 && (
+        <div className="empty">
+          <p className="error-text">{error}</p>
+          <button className="btn" onClick={() => void openChat(profile, bot?.displayName)}>
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      <MessageList items={list} running={isRunning} />
+
       <Composer />
+
+      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={meta.displayName || profile}>
+        <div className="row">
+          <Avatar name={profile} size="lg" image={bot?.avatarUrl ?? null} />
+          <div>
+            <div className="sheet-name">{meta.displayName || profile}</div>
+            {bot?.model && <div className="faint">{bot.model}</div>}
+          </div>
+        </div>
+        {bot?.description && <p className="muted" style={{ marginTop: 12 }}>{bot.description}</p>}
+      </Sheet>
     </div>
   )
 }

@@ -51,6 +51,30 @@ export const homeProfiles = atom<ProfileRow[]>([])
 
 export const activeProfile = atom<string>('default')
 
+/**
+ * The principal ("destacado") bot is a per-device preference, not a secret, so
+ * it lives in localStorage. It overrides `/api/profiles/active`; falling back
+ * to the active profile (then the first bot) when unset or stale.
+ */
+const FEATURED_KEY = 'droidbot.featuredBot'
+
+export function featuredBotName(): string | null {
+  try {
+    return localStorage.getItem(FEATURED_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setFeaturedBot(name: string | null): void {
+  try {
+    if (name) localStorage.setItem(FEATURED_KEY, name)
+    else localStorage.removeItem(FEATURED_KEY)
+  } catch {
+    // storage unavailable; the choice still applies for this session via state
+  }
+}
+
 // Avatars: name -> data URL, cached per session (memory only).
 const avatarCache = new Map<string, string>()
 const avatarFetching = new Set<string>()

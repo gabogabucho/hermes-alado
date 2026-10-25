@@ -67,8 +67,9 @@ button {
 
 .page-subtitle {
   color: var(--text-2);
-  font-size: 0.9rem;
-  margin: -10px 0 16px;
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-4);
+  line-height: 1.4;
 }
 
 .card {
@@ -281,7 +282,7 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: calc(var(--safe-top) + var(--space-2)) var(--space-3) var(--space-2);
+  padding: calc(var(--safe-top) + var(--space-2)) var(--space-4) var(--space-2);
   border-radius: 0 0 var(--r-lg) var(--r-lg);
   z-index: 5;
 }
@@ -402,6 +403,22 @@ button {
   background: var(--accent);
 }
 
+/* The "…" affordance on a bot row (opens the feature/destacar menu). */
+.row-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: var(--space-1);
+  color: var(--text-3);
+  border-radius: var(--r-full);
+}
+
+.row-more:active {
+  background: var(--surface-3);
+}
+
 .home-banners {
   display: flex;
   flex-direction: column;
@@ -443,12 +460,7 @@ button {
 
 /* ── settings ─────────────────────────────────────────────────────────── */
 
-.settings-page {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: calc(var(--safe-top) + var(--space-2)) var(--space-4) calc(var(--space-4) + var(--safe-bottom));
-}
+/* (settings now lives in PageShell; legacy .settings-page rules were removed) */
 
 /* ── chat ─────────────────────────────────────────────────────────────── */
 
@@ -456,7 +468,7 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: calc(var(--safe-top) + var(--space-2)) var(--space-3);
+  padding: calc(var(--safe-top) + var(--space-2)) var(--space-4);
   border-radius: 0 0 var(--r-lg) var(--r-lg);
   z-index: 5;
 }
@@ -539,7 +551,7 @@ button {
   border-radius: 16px;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
   line-height: 1.4;
   text-align: left;
 }

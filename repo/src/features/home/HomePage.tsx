@@ -10,15 +10,17 @@ import { profileForSession, requests } from '../chat/requests'
 import { Avatar, type AvatarMood, type AvatarSize } from '../../ui/Avatar'
 import { Icon } from '../../ui/Icon'
 import { IconButton } from '../../ui/IconButton'
-import { ListRow } from '../../ui/ListRow'
+import { Row, Section } from '../../ui/Section'
 import { Sheet } from '../../ui/Sheet'
 import { Skeleton } from '../../ui/Skeleton'
 import {
   activeProfile,
+  featuredBotName,
   homeBots,
   homeError,
   homeLoading,
   loadHome,
+  setFeaturedBot,
   type HomeBot,
 } from './store'
 
@@ -50,17 +52,13 @@ function BotAvatar({
   name,
   size = 'md',
   mood = 'idle',
-  ring = false,
-  badge = false,
 }: {
   name: string
   size?: AvatarSize
   mood?: AvatarMood
-  ring?: boolean
-  badge?: boolean
 }) {
   const appearance = useBotAppearance(name)
-  return <Avatar name={name} size={size} mood={mood} ring={ring} badge={badge} appearance={appearance} />
+  return <Avatar name={name} size={size} mood={mood} appearance={appearance} />
 }
 
 export function HomePage() {
@@ -77,13 +75,18 @@ export function HomePage() {
   const [creating, setCreating] = useState(false)
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState<{ q: string; hits: SearchHit[] }>({ q: '', hits: [] })
+  const [menuBot, setMenuBot] = useState<HomeBot | null>(null)
 
   useEffect(() => {
     void loadHome()
   }, [])
 
-  const principal = bots.find(b => b.name === active) ?? bots[0]
-  const others = bots.filter(b => b.name !== principal?.name)
+  const featured = useMemo(() => {
+    const name = featuredBotName()
+    return (name && bots.find(b => b.name === name)) || bots.find(b => b.name === active) || bots[0]
+  }, [bots, active])
+
+  const others = bots.filter(b => b.name !== featured?.name)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -129,6 +132,20 @@ export function HomePage() {
     forward(`/chat/${encodeURIComponent(b.name)}`)
   }
 
+  function onMenu(e: { stopPropagation: () => void; preventDefault: () => void }, b: HomeBot) {
+    e.stopPropagation()
+    e.preventDefault()
+    setMenuBot(b)
+  }  function highlightAsPrincipal() {
+    if (menuBot) setFeaturedBot(menuBot.name)
+    setMenuBot(null)
+  }
+
+  function clearFeatured() {
+    setFeaturedBot(null)
+    setMenuBot(null)
+  }
+
   return (
     <div className="home-page">
       <header className="home-topbar glass">
@@ -141,7 +158,7 @@ export function HomePage() {
         <span className="home-user" title={me?.display_name ?? me?.email ?? ''}>
           {(me?.display_name ?? me?.email ?? 'H').charAt(0).toUpperCase()}
         </span>
-        <span className="label-mono">DroidBot</span>
+        <span className="home-wordmark">DroidBot</span>
         <span className="spacer" />
         <IconButton icon="plus" variant="glass" label="Nuevo" onClick={() => setSheetOpen(true)} />
       </header>
@@ -186,26 +203,22 @@ export function HomePage() {
           </div>
         ) : (
           <>
-            {principal && (
-              <button className="home-hero" onClick={() => openBot(principal)}>
+            {featured && (
+              <button className="home-hero" onClick={() => openBot(featured)}>
                 <span className="backdrop-texture" aria-hidden="true" />
-                <BotAvatar
-                  name={principal.name}
-                  size="xl"
-                  ring
-                  badge
-                  mood={principal.working ? 'working' : 'idle'}
-                />
-                <span className="home-hero-name">{principal.displayName}</span>
+                <span className="home-hero-halo" aria-hidden="true" />
+                <BotAvatar name={featured.name} size="xl" mood={featured.working ? 'working' : 'idle'} />
+                <span className="home-hero-name">{featured.displayName}</span>
+                <span className="home-hero-badge">Principal</span>
                 <span className="home-hero-sub">
-                  {principal.model || principal.description || 'Bot principal'}
+                  {featured.model || featured.description || 'Bot principal'}
                 </span>
               </button>
             )}
 
-            <div className="list">
+            <Section>
               {filtered.map(b => (
-                <ListRow
+                <Row
                   key={b.name}
                   leading={<BotAvatar name={b.name} size="md" mood={b.working ? 'working' : 'idle'} />}
                   title={b.displayName}
@@ -216,38 +229,57 @@ export function HomePage() {
                   }
                   trailing={
                     <span className="list-row-trailing">
-                      {b.canonical ? <span className="faint">{relativeTime(b.canonical.lastActive)}</span> : null}
+                      {b.canonical ? (
+                        <span className="faint">{relativeTime(b.canonical.lastActive)}</span>
+                      ) : null}
                       {b.unread && <span className="unread-dot" aria-label="No leído" />}
+                      <span
+                        className="row-more"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Opciones de ${b.displayName}`}
+                        onClick={e => onMenu(e, b)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setMenuBot(b)
+                          }
+                        }}
+                      >
+                        <Icon name="more" size={18} />
+                      </span>
                     </span>
                   }
                   onClick={() => openBot(b)}
                 />
               ))}
-            </div>
+            </Section>
 
             {query.trim().length >= 2 && (
-              <div className="search-section">
-                <h2 className="search-heading">En conversaciones</h2>
+              <Section label="En conversaciones">
                 {searching ? (
-                  <p className="muted">Buscando…</p>
+                  <p className="muted" style={{ padding: 'var(--space-3)' }}>
+                    Buscando…
+                  </p>
                 ) : hits.length === 0 ? (
-                  <p className="muted">Sin resultados.</p>
+                  <p className="muted" style={{ padding: 'var(--space-3)' }}>
+                    Sin resultados.
+                  </p>
                 ) : (
-                  <div className="list">
-                    {hits.map(hit => (
-                      <ListRow
-                        key={hit.id ?? hit.title ?? hit.snippet}
-                        title={hit.title ?? 'Conversación'}
-                        subtitle={hit.snippet ?? hit.preview ?? ''}
-                        trailing={<Icon name="chevron-right" />}
-                        onClick={() =>
-                          hit.profile ? forward(`/chat/${encodeURIComponent(hit.profile)}`) : undefined
-                        }
-                      />
-                    ))}
-                  </div>
+                  hits.map(hit => (
+                    <Row
+                      key={hit.id ?? hit.title ?? hit.snippet}
+                      title={hit.title ?? 'Conversación'}
+                      subtitle={hit.snippet ?? hit.preview ?? ''}
+                      chevron
+                      onClick={() =>
+                        hit.profile ? forward(`/chat/${encodeURIComponent(hit.profile)}`) : undefined
+                      }
+                    />
+                  ))
                 )}
-              </div>
+              </Section>
             )}
           </>
         )}
@@ -279,6 +311,19 @@ export function HomePage() {
         <button className="btn btn-block" disabled>
           Nuevo grupo · Próximamente
         </button>
+      </Sheet>
+
+      <Sheet open={menuBot !== null} onClose={() => setMenuBot(null)} title={menuBot?.displayName ?? ''}>
+        <div className="list">
+          <button className="btn btn-block" onClick={highlightAsPrincipal}>
+            Destacar como principal
+          </button>
+          {menuBot && menuBot.name === featuredBotName() && (
+            <button className="btn btn-block" onClick={clearFeatured}>
+              Quitar como principal
+            </button>
+          )}
+        </div>
       </Sheet>
     </div>
   )

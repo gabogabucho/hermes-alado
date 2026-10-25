@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
-import { useSlideNavigate } from '../../app/transition'
+import { useBack } from '../../app/transition'
 import { Avatar } from '../../ui/Avatar'
 import { IconButton } from '../../ui/IconButton'
 import { Sheet } from '../../ui/Sheet'
@@ -25,7 +25,7 @@ import {
 
 export function ChatPage() {
   const { profile = 'default' } = useParams()
-  const { back } = useSlideNavigate()
+  const back = useBack('/')
   const list = useStore(items)
   const isRunning = useStore(running)
   const cards = useStore(requests)

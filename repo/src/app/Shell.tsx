@@ -9,6 +9,8 @@ import { GroupChatPage } from '../features/groups/GroupChatPage'
 import { NewGroupPage } from '../features/groups/NewGroupPage'
 import { HealthPage } from '../features/health/HealthPage'
 import { HomePage } from '../features/home/HomePage'
+import { ImportPage } from '../features/import/ImportPage'
+import { InstallInvite } from '../features/install/InstallInvite'
 import { LibraryPage } from '../features/library/LibraryPage'
 import { RoutineDetailPage } from '../features/routines/RoutineDetailPage'
 import { RoutinesPage } from '../features/routines/RoutinesPage'
@@ -41,8 +43,10 @@ export function Shell() {
           <Route path="/bots/:profile/routines/:id" element={<RoutineDetailPage />} />
           <Route path="/bots/:profile/library" element={<LibraryPage />} />
           <Route path="/bots/:profile/working" element={<WorkingPage />} />
+          <Route path="/import" element={<ImportPage />} />
         </Routes>
       </div>
+      <InstallInvite />
     </>
   )
 }

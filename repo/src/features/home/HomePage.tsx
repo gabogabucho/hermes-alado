@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@nanostores/react'
+import { APP_NAME } from '../../app/brand'
 import { useSlideNavigate } from '../../app/transition'
 import { apiFetch } from '../../lib/api'
 import { previewSubtitle } from '../../lib/hermes/bot-to-bot'
@@ -211,7 +212,7 @@ export function HomePage() {
         <span className="home-user" title={me?.display_name ?? me?.email ?? ''}>
           {(me?.display_name ?? me?.email ?? 'H').charAt(0).toUpperCase()}
         </span>
-        <span className="home-wordmark">DroidBot</span>
+        <span className="home-wordmark">{APP_NAME}</span>
         <span className="spacer" />
         <IconButton icon="plus" variant="glass" label="Nuevo" onClick={() => setSheetOpen(true)} />
       </header>
@@ -256,6 +257,19 @@ export function HomePage() {
           </div>
         ) : (
           <>
+            {bots.length === 1 && bots[0].isDefault && (
+              <button className="home-import-cta" onClick={() => forward('/import')}>
+                <span className="home-import-cta-icon">
+                  <Icon name="arrow-down" size={18} />
+                </span>
+                <span className="home-import-cta-body">
+                  <span className="home-import-cta-title">¿Venís de otra app? Traé tus bots</span>
+                  <span className="home-import-cta-sub">Importá bots, grupos y rutinas</span>
+                </span>
+                <Icon name="chevron-right" size={18} />
+              </button>
+            )}
+
             {featured && (
               <button className="home-hero" onClick={() => openBot(featured)}>
                 <span className="backdrop-texture" aria-hidden="true" />
@@ -397,6 +411,16 @@ export function HomePage() {
             El motor de grupos no está disponible en este Hermes.
           </p>
         )}
+        <div className="sheet-divider" />
+        <button
+          className="btn btn-block"
+          onClick={() => {
+            setSheetOpen(false)
+            forward('/import')
+          }}
+        >
+          Importar bots
+        </button>
       </Sheet>
 
       <Sheet open={menuBot !== null} onClose={() => setMenuBot(null)} title={menuBot?.displayName ?? ''}>

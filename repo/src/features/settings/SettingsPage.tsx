@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { useStore } from '@nanostores/react'
+import { APP_NAME } from '../../app/brand'
 import { useBack, useSlideNavigate } from '../../app/transition'
+import { InstallSheet } from '../install/InstallSheet'
+import {
+  canNativeInstall,
+  installablePlatform,
+  isStandalone,
+  triggerInstall,
+} from '../install/install-prompt'
 import { Disclosure } from '../../ui/Disclosure'
 import { PageShell } from '../../ui/PageShell'
 import { Row, Section } from '../../ui/Section'
@@ -21,6 +29,9 @@ export function SettingsPage() {
   const currentTheme = useStore(theme)
   const [draft, setDraft] = useState(url)
   const [saved, setSaved] = useState(false)
+  const [installOpen, setInstallOpen] = useState(false)
+
+  const showInstallRow = !isStandalone() && installablePlatform()
 
   async function onSave() {
     updateBackendUrl(draft)
@@ -93,6 +104,24 @@ export function SettingsPage() {
           </div>
         </div>
       </Section>
+
+      {showInstallRow && (
+        <Section label="App">
+          <Row
+            icon="arrow-up"
+            tint="accent"
+            title="Instalar app"
+            subtitle={`Abrí ${APP_NAME} a pantalla completa, como una app`}
+            chevron
+            onClick={() => {
+              if (canNativeInstall()) void triggerInstall()
+              else setInstallOpen(true)
+            }}
+          />
+        </Section>
+      )}
+
+      <InstallSheet open={installOpen} onClose={() => setInstallOpen(false)} />
 
       <Section label="Avanzado">
         <Disclosure title="URL del backend de Hermes">

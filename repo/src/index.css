@@ -439,6 +439,56 @@ button {
   text-align: left;
 }
 
+/* "Traé tus bots" CTA shown when only the default bot exists. */
+.home-import-cta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-1);
+  border-radius: var(--r-md);
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  margin-bottom: var(--space-4);
+}
+
+.home-import-cta-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
+  color: var(--accent-line);
+}
+
+.home-import-cta-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-import-cta-title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.home-import-cta-sub {
+  color: var(--text-2);
+  font-size: var(--text-xs);
+}
+
+.home-import-cta > svg {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
 .search-section {
   margin-top: var(--space-5);
 }

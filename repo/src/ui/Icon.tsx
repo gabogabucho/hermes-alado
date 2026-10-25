@@ -20,6 +20,10 @@ export type IconName =
   | 'folder'
   | 'monitor'
   | 'bell'
+  | 'share'
+  | 'arrow-up'
+  | 'copy'
+  | 'upload'
 
 // 24px grid, 1.75 stroke, currentColor.
 const PATHS: Record<IconName, ReactElement> = {
@@ -85,6 +89,22 @@ const PATHS: Record<IconName, ReactElement> = {
       <path d="M10.3 20a2 2 0 0 0 3.4 0" />
     </>
   ),
+  share: (
+    <>
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="6" r="2.5" />
+      <circle cx="18" cy="18" r="2.5" />
+      <path d="m8.3 10.7 7.4-3.4M8.3 13.3l7.4 3.4" />
+    </>
+  ),
+  'arrow-up': <path d="M12 19V5M6 11l6-6 6 6" />,
+  copy: (
+    <>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </>
+  ),
+  upload: <path d="M12 21V9M6 15l6-6 6 6" />,
 }
 
 export function Icon({

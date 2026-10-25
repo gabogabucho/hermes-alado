@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig, type ProxyOptions } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { APP_NAME } from './src/app/brand.ts'
 
 const proxyTarget = process.env.HERMES_URL || 'https://droidbot.gabrielurrutia.com.ar'
 const targetOrigin = new URL(proxyTarget).origin
@@ -51,8 +52,8 @@ export default defineConfig({
       },
       includeAssets: ['favicon.svg', 'icon.svg'],
       manifest: {
-        name: 'DroidBot',
-        short_name: 'DroidBot',
+        name: APP_NAME,
+        short_name: APP_NAME,
         description: 'Tu agente Hermes en el bolsillo',
         theme_color: '#0d1117',
         background_color: '#0d1117',

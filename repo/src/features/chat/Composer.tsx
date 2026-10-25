@@ -3,7 +3,7 @@ import { useStore } from '@nanostores/react'
 import { apiFetch } from '../../lib/api'
 import { request } from '../../lib/hermes/connection'
 import { IconButton } from '../../ui/IconButton'
-import { chatMeta, chatSessionId, running, sendMessage, stop } from './store'
+import { chatMeta, chatSessionId, consumePendingDraft, running, sendMessage, stop } from './store'
 
 interface Attachment {
   id: string
@@ -24,7 +24,8 @@ function fileToDataUrl(file: File): Promise<string> {
 export function Composer() {
   const isRunning = useStore(running)
   const meta = useStore(chatMeta)
-  const [text, setText] = useState('')
+  // One-shot prefill queued before navigation (migration fallback).
+  const [text, setText] = useState(() => consumePendingDraft())
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [busy, setBusy] = useState(false)
   const [recording, setRecording] = useState(false)

@@ -35,6 +35,22 @@ let streamingAssistantId: string | null = null
 let historyOffset = 0
 let visible = false
 
+// One-shot composer prefill: the migration fallback hands the principal bot a
+// message before navigating to its chat; the Composer consumes it on mount.
+let pendingDraftText = ''
+
+/** Queue a message for the next Composer mount (chat is opened right after). */
+export function setPendingDraft(text: string): void {
+  pendingDraftText = text
+}
+
+/** Read and clear the queued draft. */
+export function consumePendingDraft(): string {
+  const text = pendingDraftText
+  pendingDraftText = ''
+  return text
+}
+
 export function chatSessionId(): string | null {
   return liveSid
 }

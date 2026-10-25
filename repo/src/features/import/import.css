@@ -1,0 +1,130 @@
+/* "Traé tus bots" migration flow. */
+
+.import-prompt {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-2);
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.import-paste {
+  min-height: 42vh;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.import-upload-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.import-card {
+  padding: var(--space-3) var(--space-4);
+}
+
+.import-card + .import-card {
+  border-top: 1px solid var(--border);
+}
+
+.import-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.import-card-title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-card-soul {
+  margin: var(--space-2) 0 0;
+  color: var(--text-2);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.warn-text {
+  margin: var(--space-2) 0 0;
+  color: var(--warn);
+  font-size: var(--text-xs);
+}
+
+.import-conflict {
+  margin-top: var(--space-2);
+}
+
+.import-conflict .segmented {
+  margin-top: var(--space-2);
+}
+
+.import-schedule-edit {
+  margin-top: var(--space-2);
+}
+
+.import-schedule-edit .input {
+  margin-top: var(--space-1);
+  font-size: 0.9rem;
+}
+
+.import-chunk {
+  margin: 0;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.import-chunk + .import-chunk {
+  border-top: 1px solid var(--border);
+}
+
+.import-progress-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  min-height: 44px;
+  font-size: var(--text-sm);
+}
+
+.import-progress-row + .import-progress-row {
+  border-top: 1px solid var(--border);
+}
+
+.import-progress-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-progress-row .faint {
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-summary {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}

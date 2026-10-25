@@ -19,9 +19,17 @@ export async function loadProfiles(): Promise<void> {
   }
 }
 
-export async function createProfile(name: string, description?: string): Promise<void> {
+/**
+ * Create a bot. Like the desktop's create dialog, it clones `cloneFrom` by default
+ * (Hermes copies config.yaml, .env and SOUL.md — hermes_cli/profiles.py `_CLONE_CONFIG_FILES`),
+ * so the new bot inherits a working model + credentials. Pass `cloneFrom: null` for a blank bot.
+ */
+export async function createProfile(
+  name: string,
+  { description, cloneFrom = 'default' }: { description?: string; cloneFrom?: string | null } = {},
+): Promise<void> {
   await apiFetch('/api/profiles', {
     method: 'POST',
-    body: JSON.stringify({ name, description }),
+    body: JSON.stringify({ name, description, clone_from: cloneFrom }),
   })
 }

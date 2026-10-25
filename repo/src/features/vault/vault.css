@@ -1,0 +1,100 @@
+/* Bóveda — feature-local styles (semantic tokens only). */
+
+.vault-section {
+  margin-bottom: var(--space-5);
+}
+
+.vault-section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-3);
+}
+
+.vault-row-trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+.vault-pool {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vault-pool-provider {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-2);
+  padding: var(--space-1) 0;
+}
+
+.vault-pool-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--surface-1);
+  border-radius: var(--r-md);
+  padding: var(--space-3);
+}
+
+.vault-pool-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vault-key-name {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  word-break: break-all;
+}
+
+.vault-key-redacted {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  word-break: break-all;
+}
+
+.vault-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--space-2);
+}
+
+.confirm-sheet-body {
+  color: var(--text-1);
+  margin-bottom: var(--space-3);
+}
+
+.confirm-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* 44px touch targets for destructive actions on small screens. */
+.vault-pool-row .btn,
+.confirm-sheet-actions .btn {
+  min-height: 44px;
+}

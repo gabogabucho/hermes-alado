@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
 import { useBack, useSlideNavigate } from '../../app/transition'
+import { deleteProfile } from '../../lib/hermes/profile-delete'
 import { Avatar } from '../../ui/Avatar'
+import { DangerConfirmSheet } from '../../ui/DangerConfirmSheet'
 import { EmptyState } from '../../ui/EmptyState'
 import { PageShell } from '../../ui/PageShell'
 import { Row, Section } from '../../ui/Section'
@@ -12,7 +14,14 @@ import { StatusDot, type DotTone } from '../../ui/StatusDot'
 import { Toggle } from '../../ui/Toggle'
 import { ensureAppearances, useBotAppearance } from '../bots/appearance-store'
 import { computerDetail, computerRowStatus, loadComputer } from '../computer/store'
-import { homeLoading, homeProfiles } from '../home/store'
+import {
+  activeProfile,
+  featuredBotName,
+  homeLoading,
+  homeProfiles,
+  loadHome,
+  setFeaturedBot,
+} from '../home/store'
 import {
   botDisplayName,
   loadProfileStats,
@@ -25,20 +34,25 @@ import './bot-profile.css'
 /**
  * Bot profile (GrokBot screen 6): halo hero + Editar, and one grouped
  * section of icon-tile rows — Programando, Rutinas, Biblioteca, Computadora
- * (live `display.status` dot) and the Notificaciones toggle.
+ * (live `display.status` dot) and the Notificaciones toggle — plus the
+ * bottom "Eliminar bot" danger row.
  */
 export function BotProfilePage() {
   const { profile = 'default' } = useParams()
   const back = useBack('/')
-  const { forward } = useSlideNavigate()
+  const { forward, navigate } = useSlideNavigate()
   const rows = useStore(homeProfiles)
   const rosterLoading = useStore(homeLoading)
   const statsLoading = useStore(profileStatsLoading)
   const workers = useStore(workersCount)
   const routines = useStore(routinesCount)
   const computer = useStore(computerDetail)
+  const active = useStore(activeProfile)
   const appearance = useBotAppearance(profile)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     ensureAppearances()
@@ -58,7 +72,33 @@ export function BotProfilePage() {
   const computerLabel =
     computerState === 'active' ? 'Activo' : computerState === 'inactive' ? 'Inactivo' : computerState === 'not-installed' ? 'Sin instalar' : '—'
 
+  const isDefault = Boolean(row?.is_default)
+  const isActive = active === profile
+  const deleteBlocked = isDefault || isActive
+  const deleteSubtitle = isDefault
+    ? 'El bot principal no se puede eliminar: Hermes siempre necesita uno.'
+    : isActive
+      ? 'Es el bot activo del servidor. Cambiá el perfil activo antes de eliminarlo.'
+      : 'Se borran sus chats, rutinas y archivos'
+
   const enc = encodeURIComponent(profile)
+
+  const doDelete = async (): Promise<void> => {
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      await deleteProfile(profile)
+      // A settlement-pending answer still means the directory is gone: success.
+      if (featuredBotName() === profile) setFeaturedBot(null)
+      setDeleteOpen(false)
+      await loadHome()
+      navigate('/', { replace: true })
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'No se pudo eliminar el bot')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <PageShell title={displayName} onBack={back}>
@@ -134,6 +174,17 @@ export function BotProfilePage() {
               trailing={<Toggle checked={false} onChange={() => setNotifOpen(true)} label="Notificaciones" />}
             />
           </Section>
+
+          <Section footer="Eliminar borra todo lo de este bot del servidor. No se puede deshacer.">
+            <Row
+              icon="trash"
+              tint="danger"
+              title="Eliminar bot"
+              subtitle={deleteSubtitle}
+              disabled={deleteBlocked}
+              onClick={() => setDeleteOpen(true)}
+            />
+          </Section>
         </>
       )}
 
@@ -143,6 +194,24 @@ export function BotProfilePage() {
           ntfy o por Telegram (a decidir). Por ahora no guarda nada.
         </p>
       </Sheet>
+
+      {deleteOpen && (
+        <DangerConfirmSheet
+          onClose={() => setDeleteOpen(false)}
+          title="Eliminar bot"
+          nameToType={profile}
+          body={
+            <>
+              Se van a borrar los chats, rutinas y archivos de <b>{displayName}</b>. No se puede
+              deshacer.
+            </>
+          }
+          confirmLabel="Eliminar bot"
+          busy={deleting}
+          error={deleteError}
+          onConfirm={() => void doDelete()}
+        />
+      )}
     </PageShell>
   )
 }

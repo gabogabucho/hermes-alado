@@ -253,11 +253,11 @@ export function GroupChatPage() {
           </button>
         )}
         {confirmingDisband ? (
-          <div className="group-disband-confirm" role="alertdialog" aria-label="Disolver grupo">
-            <p className="muted">¿Disolver el grupo? No se puede deshacer.</p>
+          <div className="group-disband-confirm" role="alertdialog" aria-label="Eliminar grupo">
+            <p className="muted">¿Eliminar el grupo? No se puede deshacer.</p>
             <div className="group-action-buttons">
               <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => void disbandRoom().then(() => back())}>
-                Sí, disolver
+                Sí, eliminar
               </button>
               <button className="btn btn-sm" onClick={() => setConfirmingDisband(false)}>
                 Cancelar
@@ -266,7 +266,7 @@ export function GroupChatPage() {
           </div>
         ) : (
           <button className="btn btn-block btn-danger" style={{ marginTop: 8 }} disabled={busy} onClick={() => setConfirmingDisband(true)}>
-            Disolver grupo
+            Eliminar grupo
           </button>
         )}
       </Sheet>

@@ -4,12 +4,14 @@ import { APP_NAME } from '../../app/brand'
 import { useSlideNavigate } from '../../app/transition'
 import { apiFetch } from '../../lib/api'
 import { previewSubtitle } from '../../lib/hermes/bot-to-bot'
+import { groupEngine } from '../../lib/hermes/groups'
 import { createProfile } from '../bots/store'
 import { useBotAppearance } from '../bots/appearance-store'
 import { user } from '../auth/store'
 import { profileForSession, requests } from '../chat/requests'
-import { useGroupRows, type GroupRow } from '../groups/store'
+import { refreshGroupRows, useGroupRows, type GroupRow } from '../groups/store'
 import { Avatar, type AvatarMood, type AvatarSize } from '../../ui/Avatar'
+import { DangerConfirmSheet } from '../../ui/DangerConfirmSheet'
 import { Icon } from '../../ui/Icon'
 import { IconButton } from '../../ui/IconButton'
 import { Row, Section } from '../../ui/Section'
@@ -109,6 +111,10 @@ export function HomePage() {
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState<{ q: string; hits: SearchHit[] }>({ q: '', hits: [] })
   const [menuBot, setMenuBot] = useState<HomeBot | null>(null)
+  const [menuGroup, setMenuGroup] = useState<GroupRow | null>(null)
+  const [groupDeleteOpen, setGroupDeleteOpen] = useState(false)
+  const [deletingGroup, setDeletingGroup] = useState(false)
+  const [groupDeleteError, setGroupDeleteError] = useState('')
 
   useEffect(() => {
     void loadHome()
@@ -198,6 +204,22 @@ export function HomePage() {
   function clearFeatured() {
     setFeaturedBot(null)
     setMenuBot(null)
+  }
+
+  const doDeleteGroup = async () => {
+    if (!menuGroup) return
+    setDeletingGroup(true)
+    setGroupDeleteError('')
+    try {
+      await groupEngine.disband(menuGroup.roomId)
+      setGroupDeleteOpen(false)
+      setMenuGroup(null)
+      await refreshGroupRows()
+    } catch (e) {
+      setGroupDeleteError(e instanceof Error ? e.message : 'No se pudo eliminar el grupo')
+    } finally {
+      setDeletingGroup(false)
+    }
   }
 
   return (
@@ -298,6 +320,26 @@ export function HomePage() {
                       <span className="list-row-trailing">
                         <span className="faint">{relativeTime(entry.group.lastActivity)}</span>
                         {entry.group.needsYou && <span className="needs-badge">Te necesitan</span>}
+                        <span
+                          className="row-more"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Opciones de ${entry.group.name}`}
+                          onClick={e => {
+                            e.stopPropagation()
+                            e.preventDefault()
+                            setMenuGroup(entry.group)
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setMenuGroup(entry.group)
+                            }
+                          }}
+                        >
+                          <Icon name="more" size={18} />
+                        </span>
                       </span>
                     }
                     onClick={() => forward(`/group/${encodeURIComponent(entry.group.roomId)}`)}
@@ -438,6 +480,46 @@ export function HomePage() {
           )}
         </div>
       </Sheet>
+
+      <Sheet open={menuGroup !== null} onClose={() => setMenuGroup(null)} title={menuGroup?.name ?? ''}>
+        <div className="list">
+          <button
+            className="btn btn-block"
+            onClick={() => {
+              if (menuGroup) forward(`/group/${encodeURIComponent(menuGroup.roomId)}`)
+              setMenuGroup(null)
+            }}
+          >
+            Abrir grupo
+          </button>
+          <button
+            className="btn btn-block btn-danger"
+            onClick={() => {
+              setGroupDeleteOpen(true)
+            }}
+          >
+            Eliminar grupo
+          </button>
+        </div>
+      </Sheet>
+
+      {groupDeleteOpen && (
+        <DangerConfirmSheet
+          onClose={() => setGroupDeleteOpen(false)}
+          title="Eliminar grupo"
+          nameToType={menuGroup?.name ?? ''}
+          body={
+            <>
+              Se elimina <b>{menuGroup?.name}</b> y toda su conversación. Los bots que lo forman
+              siguen existiendo. No se puede deshacer.
+            </>
+          }
+          confirmLabel="Eliminar grupo"
+          busy={deletingGroup}
+          error={groupDeleteError}
+          onConfirm={() => void doDeleteGroup()}
+        />
+      )}
     </div>
   )
 }

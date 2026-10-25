@@ -8,6 +8,7 @@ import { groupEngine } from '../../lib/hermes/groups'
 import { createProfile } from '../bots/store'
 import { useBotAppearance } from '../bots/appearance-store'
 import { user } from '../auth/store'
+import { prefetchCanonical } from '../chat/store'
 import { profileForSession, requests } from '../chat/requests'
 import { refreshGroupRows, useGroupRows, type GroupRow } from '../groups/store'
 import { Avatar, type AvatarMood, type AvatarSize } from '../../ui/Avatar'
@@ -28,6 +29,7 @@ import {
   setFeaturedBot,
   type HomeBot,
 } from './store'
+import { busyProfiles, watchBusy } from './busy-store'
 
 const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
@@ -57,13 +59,20 @@ function BotAvatar({
   name,
   size = 'md',
   mood = 'idle',
+  busy = false,
 }: {
   name: string
   size?: AvatarSize
   mood?: AvatarMood
+  busy?: boolean
 }) {
   const appearance = useBotAppearance(name)
-  return <Avatar name={name} size={size} mood={mood} appearance={appearance} />
+  return <Avatar name={name} size={size} mood={mood} appearance={appearance} busy={busy} />
+}
+
+/** The tiny "trabajando…" caption shown under a busy bot's name. */
+function BusyCaption() {
+  return <span className="home-busy-caption">trabajando…</span>
 }
 
 function GroupFace({ name }: { name: string }) {
@@ -103,6 +112,7 @@ export function HomePage() {
   const active = useStore(activeProfile)
   const me = useStore(user)
   const pending = useStore(requests)
+  const busy = useStore(busyProfiles)
   const { rows: groupList, available: groupsAvail } = useGroupRows()
 
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -118,6 +128,7 @@ export function HomePage() {
 
   useEffect(() => {
     void loadHome()
+    return watchBusy()
   }, [])
 
   const featuredName = useStore(featuredBot)
@@ -125,6 +136,16 @@ export function HomePage() {
     const name = featuredName
     return (name && bots.find(b => b.name === name)) || bots.find(b => b.name === active) || bots[0]
   }, [bots, active, featuredName])
+
+  const featuredBusy = Boolean(featured && busy.has(featured.name))
+
+  // The canonical chat id lookup is serial in openChat (session.list →
+  // resume). Prefetch the featured bot's id while Home is idle so the tap
+  // jumps straight to `session.resume`.
+  const featuredBotToPrefetch = featured?.name
+  useEffect(() => {
+    if (featuredBotToPrefetch) void prefetchCanonical(featuredBotToPrefetch)
+  }, [featuredBotToPrefetch])
 
   const others = bots.filter(b => b.name !== featured?.name)
 
@@ -266,7 +287,7 @@ export function HomePage() {
             <Skeleton width={160} />
             <Skeleton width={120} />
           </div>
-        ) : error ? (
+        ) : error && bots.length === 0 ? (
           <div className="empty">
             <p className="error-text">{error}</p>
             <button className="btn" onClick={() => void loadHome()}>
@@ -295,9 +316,15 @@ export function HomePage() {
             {featured && (
               <button className="home-hero" onClick={() => openBot(featured)}>
                 <span className="backdrop-texture" aria-hidden="true" />
-                <BotAvatar name={featured.name} size="xl" mood={featured.working ? 'working' : 'idle'} />
+                <BotAvatar
+                  name={featured.name}
+                  size="xl"
+                  mood={featured.working || featuredBusy ? 'working' : 'idle'}
+                  busy={featuredBusy}
+                />
                 <span className="home-hero-name">{featured.displayName}</span>
                 <span className="home-hero-badge">Principal</span>
+                {featuredBusy && <BusyCaption />}
                 <span className="home-hero-sub">
                   {featured.model || featured.description || 'Bot principal'}
                 </span>
@@ -348,7 +375,12 @@ export function HomePage() {
                   <Row
                     key={entry.bot.name}
                     leading={
-                      <BotAvatar name={entry.bot.name} size="md" mood={entry.bot.working ? 'working' : 'idle'} />
+                      <BotAvatar
+                        name={entry.bot.name}
+                        size="md"
+                        mood={entry.bot.working || busy.has(entry.bot.name) ? 'working' : 'idle'}
+                        busy={busy.has(entry.bot.name)}
+                      />
                     }
                     title={entry.bot.displayName}
                     subtitle={
@@ -381,7 +413,9 @@ export function HomePage() {
                       </span>
                     }
                     onClick={() => openBot(entry.bot)}
-                  />
+                  >
+                    {busy.has(entry.bot.name) && <BusyCaption />}
+                  </Row>
                 ),
               )}
             </Section>

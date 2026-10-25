@@ -25,6 +25,10 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let lastCloseCode: number | null = null
 let dialing = false
 
+// A ticket minted during the boot flow (parallel with `auth/me`), consumed by
+// the FIRST dial only. Later (re)connects mint a fresh single-use ticket.
+let preMintedTicket: string | null = null
+
 const client = new JsonRpcGatewayClient({
   onSocketClose: event => {
     lastCloseCode = event.code
@@ -54,10 +58,15 @@ async function buildWsUrl(): Promise<string> {
     return `${base}${sep}token=${encodeURIComponent(getSessionToken() ?? '')}`
   }
 
-  // Gated: mint a fresh single-use ticket on EVERY connect (30 s TTL).
-  const { ticket } = await apiFetch<{ ticket: string }>('/api/auth/ws-ticket', {
-    method: 'POST',
-  })
+  // Gated: consume the boot-minted ticket once, else mint a fresh single-use
+  // ticket on this connect (30 s TTL).
+  let ticket = preMintedTicket
+  preMintedTicket = null
+  if (!ticket) {
+    ;({ ticket } = await apiFetch<{ ticket: string }>('/api/auth/ws-ticket', {
+      method: 'POST',
+    }))
+  }
   return `${base}${sep}ticket=${encodeURIComponent(ticket)}`
 }
 
@@ -105,8 +114,10 @@ async function runReconnect(): Promise<void> {
   try {
     // Close code 4401 = auth rejection (tui_gateway/chat_ws.py). Re-resolve auth
     // before retrying; if we became anonymous, stop and let the UI show login.
+    // The boot ticket died with the rejection too — a retry mints a fresh one.
     if (lastCloseCode === 4401) {
       lastCloseCode = null
+      preMintedTicket = null
       auth = await resolveAuth()
     }
 
@@ -123,9 +134,15 @@ async function runReconnect(): Promise<void> {
   }
 }
 
-/** Open (or reopen) the gateway connection, resolving auth mode first. */
-export async function connect(): Promise<void> {
+/**
+ * Open (or reopen) the gateway connection. Pass the auth already resolved by
+ * the boot flow (so `resolveAuth`'s `/api/auth/me` never runs twice) and the
+ * ticket minted in parallel with it (a `null` ticket means "mint on dial").
+ */
+export async function connect(state?: AuthState, preTicket: string | null = null): Promise<void> {
   wantOpen = true
+  if (state) auth = state
+  if (preTicket) preMintedTicket = preTicket
   await runReconnect()
 }
 

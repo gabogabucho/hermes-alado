@@ -2,6 +2,7 @@ import { atom } from 'nanostores'
 import { useStore } from '@nanostores/react'
 import { useEffect } from 'react'
 import { groupEngine, type Room, type RoomActor, type RoomEvent, type RoomMember } from '../../lib/hermes/groups'
+import { publishGroupBusy } from '../home/busy-store'
 import { memberName } from './members'
 
 /**
@@ -25,6 +26,8 @@ export interface GroupRow {
   author: string
   lastActivity: number
   needsYou: boolean
+  /** Member profiles mid-turn right now (driver member_activity status running). */
+  workingMembers: string[]
 }
 
 export const groupRows = atom<GroupRow[]>([])
@@ -91,6 +94,10 @@ async function roomToRow(room: Room): Promise<GroupRow | null> {
       author,
       lastActivity: room.updated_at ?? room.created_at ?? 0,
       needsYou: (driver_status?.pending_actions?.length ?? 0) > 0,
+      workingMembers: (driver_status?.member_activity ?? [])
+        .filter(a => a.status === 'running')
+        .map(a => a.member_id)
+        .filter((m): m is string => Boolean(m)),
     }
   } catch {
     // Room vanished (disbanded mid-cycle); the next `groups.list` drops it.
@@ -114,14 +121,23 @@ export async function refreshGroupRows(): Promise<void> {
     if (available === false) {
       groupRows.set([])
       groupsError.set('')
+      publishGroupBusy(new Map())
       return
     }
     if (available === null) return
 
     const rooms = await groupEngine.list()
     const rows = await Promise.all(rooms.map(roomToRow))
-    groupRows.set(rows.filter((row): row is GroupRow => row !== null))
+    const clean = rows.filter((row): row is GroupRow => row !== null)
+    groupRows.set(clean)
     groupsError.set('')
+
+    // Feed the Home busy indicator: member profiles with a running room task.
+    const busy = new Map<string, boolean>()
+    for (const row of clean) {
+      for (const member of row.workingMembers) busy.set(member, true)
+    }
+    publishGroupBusy(busy)
   } catch (e) {
     groupsError.set(e instanceof Error ? e.message : 'No se pudieron cargar los grupos')
   } finally {

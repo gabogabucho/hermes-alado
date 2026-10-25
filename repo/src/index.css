@@ -1039,6 +1039,60 @@ button {
   pointer-events: none;
 }
 
+/* Live "running a turn" indicator (Home hero + roster rows): a soft pulsing
+   gold ring in the theme accent. The pulse pauses entirely under
+   prefers-reduced-motion, leaving the static ring as the state signal. */
+.avatar-busy-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  border-radius: var(--r-full);
+  border: 2.5px solid var(--accent);
+  pointer-events: none;
+  animation: busy-pulse 1.8s var(--ease) infinite;
+}
+
+@keyframes busy-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-busy-ring {
+    animation: none;
+    opacity: 0.75;
+  }
+}
+
+.home-busy-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent-line);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.home-busy-caption::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+}
+
+.row .home-busy-caption {
+  font-weight: 500;
+}
+
 .btn-sm {
   padding: 4px 10px;
   font-size: 0.8rem;

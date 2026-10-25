@@ -27,6 +27,8 @@ export type {
   ProfilesGetAssetResult,
   ProfilesListResult,
   PromptSubmitParams,
+  SessionActiveItem,
+  SessionActiveListResult,
   SessionCreateParams,
   SessionCreateResult,
   SessionInterruptResult,

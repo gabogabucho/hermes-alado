@@ -6,6 +6,7 @@
 
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
+import { CacheFirst } from 'workbox-strategies'
 
 declare let self: ServiceWorkerGlobalScope
 
@@ -14,6 +15,14 @@ declare const __WB_MANIFEST: Array<{ url: string; revision: string | null }>
 
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
+
+// Los chunks lazy excluidos del precache (noVNC + pantalla de computadora en
+// vivo, ~1.4 MB) se cachean en runtime al primer uso. CacheFirst: los nombres
+// de chunk llevan hash, así que una URL nueva siempre revalida sola.
+registerRoute(
+  ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/assets/'),
+  new CacheFirst({ cacheName: 'runtime-assets' }),
+)
 
 // Mismo comportamiento que el generateSW anterior: la SPA responde las
 // navegaciones, pero nunca las rutas que Hermes posee (login, OAuth, API).

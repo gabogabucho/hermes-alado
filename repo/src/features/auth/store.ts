@@ -9,7 +9,7 @@ export const authState = atom<AuthState | null>(null)
 export const user = atom<UserInfo | null>(null)
 export const authError = atom<string>('')
 
-export async function checkAuth(): Promise<void> {
+export async function checkAuth(): Promise<AuthState> {
   const state = await resolveAuth()
   authState.set(state)
 
@@ -31,4 +31,5 @@ export async function checkAuth(): Promise<void> {
     authStatus.set('error')
     authError.set(state.error)
   }
+  return state
 }

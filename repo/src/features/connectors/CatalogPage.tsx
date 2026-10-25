@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
+import { useBack, useSlideNavigate } from '../../app/transition'
 import {
   CONNECTOR_FAMILIES,
   FAMILY_LABELS,
@@ -8,19 +8,37 @@ import {
   TOOLSET_ESSENTIALS,
   type Connector,
   type ConnectorFamily,
+  type FamilyData,
 } from '../../lib/hermes/connectors'
 import { activeProfile, loadActiveProfile } from '../home/store'
-import { ListRow } from '../../ui/ListRow'
-import { Pill } from '../../ui/Pill'
+import { Badge } from '../../ui/StatusDot'
+import { BrandIcon } from '../../ui/BrandIcon'
+import { Icon } from '../../ui/Icon'
+import { PageShell } from '../../ui/PageShell'
+import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
-import { ConnectorIcon } from './components/ConnectorIcon'
 import { catalogLoading, connectors, familyData, familyErrors, loadCatalogData, loadFamilyData } from './store'
 import './connectors.css'
 
 type ChipSelection = { kind: 'all' } | { kind: 'family'; family: ConnectorFamily } | { kind: 'category'; category: string }
 
+/** Best-effort brand URL for a connector, from the family data the desktop
+ *  would derive a hostname from (MCP entry url/install_url, messaging docs_url). */
+function connectorUrl(c: Connector, data: FamilyData): string | null {
+  if (c.family === 'apps') {
+    const entry = data.apps?.catalog.find(e => e.name === c.name)
+    return entry?.url ?? entry?.install_url ?? null
+  }
+  if (c.family === 'messaging') {
+    const platform = data.messaging?.payload.platforms.find(p => p.name === c.name)
+    return platform?.docs_url ?? null
+  }
+  return null
+}
+
 export function CatalogPage() {
-  const navigate = useNavigate()
+  const back = useBack('/settings')
+  const { forward } = useSlideNavigate()
   const list = useStore(connectors)
   const loading = useStore(catalogLoading)
   const data = useStore(familyData)
@@ -68,29 +86,36 @@ export function CatalogPage() {
   const connected = filtered.filter(c => c.status === 'connected')
   const featured = filtered.filter(c => c.status !== 'connected' && featuredIds.has(c.id))
   const available = filtered.filter(c => c.status !== 'connected' && !featuredIds.has(c.id))
-  const connectedCount = list.filter(c => c.status === 'connected').length
+
+  // "activos" = connected items of the current filter; skills are merely
+  // enabled, so they don't inflate the Apps count.
+  const activeCount = filtered.filter(c => c.status === 'connected' && c.family !== 'skills').length
 
   const renderRow = (c: Connector) => (
-    <ListRow
+    <Row
       key={c.id}
-      leading={<ConnectorIcon name={c.name} />}
+      leading={<BrandIcon name={c.name} url={connectorUrl(c, data)} size={28} />}
       title={c.name}
       subtitle={c.description || c.category || FAMILY_LABELS[c.family]}
       trailing={
-        <span className={`btn connect-btn${c.status === 'connected' ? ' connected' : ''}`}>
-          {c.status === 'connected' ? 'Conectado' : 'Conectar'}
-        </span>
+        c.status === 'connected' ? (
+          <span className="connect-state">
+            <Icon name="check" size={14} />
+            Conectado
+          </span>
+        ) : (
+          <span className="connect-btn">Conectar</span>
+        )
       }
-      onClick={() => navigate(`/connectors/${c.family}/${encodeURIComponent(c.id)}`)}
+      onClick={() => forward(`/connectors/${c.family}/${encodeURIComponent(c.id)}`)}
     />
   )
 
   const section = (title: string, items: Connector[]) =>
     items.length > 0 && (
-      <section className="connector-section">
-        <h2>{title}</h2>
-        <div className="list">{items.map(renderRow)}</div>
-      </section>
+      <Section label={title}>
+        {items.map(renderRow)}
+      </Section>
     )
 
   const familyErrorRows = CONNECTOR_FAMILIES.filter(
@@ -98,17 +123,11 @@ export function CatalogPage() {
   )
 
   return (
-    <div>
-      <div className="page-header">
-        <button className="btn ghost" onClick={() => navigate('/profiles')}>
-          ‹
-        </button>
-        <h1 className="page-title" style={{ margin: 0 }}>
-          Conectar aplicaciones
-        </h1>
-        <Pill>{connectedCount} conectados</Pill>
-      </div>
-
+    <PageShell
+      title="Conectar aplicaciones"
+      onBack={back}
+      actions={<Badge>{activeCount} activos</Badge>}
+    >
       <input
         className="input catalog-search"
         type="search"
@@ -117,7 +136,7 @@ export function CatalogPage() {
         onChange={e => setQuery(e.target.value)}
       />
 
-      <div className="chip-row">
+      <div className="chips-scroll">
         <button
           type="button"
           className={`chip${chip.kind === 'all' ? ' chip-active' : ''}`}
@@ -193,6 +212,6 @@ export function CatalogPage() {
               )}
             </>
           )}
-    </div>
+    </PageShell>
   )
 }

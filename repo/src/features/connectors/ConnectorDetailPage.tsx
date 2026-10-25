@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
 import {
   FAMILY_LABELS,
@@ -8,8 +8,11 @@ import {
   type Connector,
 } from '../../lib/hermes/connectors'
 import { activeProfile, loadActiveProfile } from '../home/store'
+import { BrandIcon } from '../../ui/BrandIcon'
+import { StatusDot, type DotTone } from '../../ui/StatusDot'
+import { PageShell } from '../../ui/PageShell'
 import { Skeleton } from '../../ui/Skeleton'
-import { ConnectorIcon } from './components/ConnectorIcon'
+import { useBack } from '../../app/transition'
 import { McpSection } from './components/McpSection'
 import { MessagingSection } from './components/MessagingSection'
 import { PluginSection } from './components/PluginSection'
@@ -25,9 +28,16 @@ const STATUS_LABELS: Record<Connector['status'], string> = {
   error: 'Con error',
 }
 
+const STATUS_TONE: Record<Connector['status'], DotTone> = {
+  connected: 'ok',
+  available: 'neutral',
+  needs_setup: 'warn',
+  error: 'danger',
+}
+
 export function ConnectorDetailPage() {
   const { family, id } = useParams()
-  const navigate = useNavigate()
+  const back = useBack('/connectors')
   const profile = useStore(activeProfile)
   const data = useStore(familyData)
 
@@ -50,25 +60,15 @@ export function ConnectorDetailPage() {
 
   if (!isConnectorFamily(family) || !id) {
     return (
-      <div>
-        <div className="page-header">
-          <button className="btn ghost" onClick={() => navigate('/connectors')}>
-            ‹
-          </button>
-        </div>
+      <PageShell title="Conector" onBack={back}>
         <p className="muted">Conector no encontrado.</p>
-      </div>
+      </PageShell>
     )
   }
 
   if (!connector) {
     return (
-      <div>
-        <div className="page-header">
-          <button className="btn ghost" onClick={() => navigate('/connectors')}>
-            ‹
-          </button>
-        </div>
+      <PageShell title="Conector" onBack={back}>
         {data[family] === undefined ? (
           <div className="list">
             <Skeleton />
@@ -78,7 +78,7 @@ export function ConnectorDetailPage() {
         ) : (
           <p className="muted">Conector no encontrado.</p>
         )}
-      </div>
+      </PageShell>
     )
   }
 
@@ -88,19 +88,16 @@ export function ConnectorDetailPage() {
       : undefined
 
   return (
-    <div className="detail-page">
-      <div className="page-header">
-        <button className="btn ghost" onClick={() => navigate('/connectors')}>
-          ‹
-        </button>
-        <ConnectorIcon name={connector.name} size={34} />
-        <span className="spacer" style={{ textAlign: 'left' }}>
-          <span className="detail-title">{connector.name}</span>
-          <span className="faint detail-family">{FAMILY_LABELS[connector.family]}</span>
-        </span>
-        <span className={`chip ${connector.status === 'connected' ? 'ok' : ''}`}>
-          {STATUS_LABELS[connector.status]}
-        </span>
+    <PageShell
+      title={connector.name}
+      onBack={back}
+      actions={<StatusDot tone={STATUS_TONE[connector.status]} label={STATUS_LABELS[connector.status]} />}
+    >
+      <div className="detail-head">
+        <BrandIcon name={connector.name} size={56} />
+        <div className="detail-head-meta">
+          <span className="detail-family">{FAMILY_LABELS[connector.family]}</span>
+        </div>
       </div>
 
       {connector.description && <p className="detail-description">{connector.description}</p>}
@@ -152,6 +149,6 @@ export function ConnectorDetailPage() {
       )}
 
       {connector.family === 'messaging' && !messagingPlatform && <p className="muted">Sin datos del canal.</p>}
-    </div>
+    </PageShell>
   )
 }

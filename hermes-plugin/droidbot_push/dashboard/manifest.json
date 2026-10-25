@@ -1,0 +1,8 @@
+{
+  "name": "droidbot-push",
+  "label": "DroidBot Push",
+  "description": "Web Push para DroidBot PWA — avisos de turnos terminados y aprobaciones",
+  "icon": "Bell",
+  "version": "0.1.0",
+  "api": "plugin_api.py"
+}

@@ -1,0 +1,21 @@
+name: droidbot-push
+version: 0.1.0
+description: "Push notifications for DroidBot PWA: avisa al teléfono cuando un bot termina un turno o te necesita (aprobación / aclaración / grupo)."
+author: "DroidBot"
+kind: standalone
+python_dependencies:
+  - pywebpush
+provides_hooks:
+  - on_session_end
+  - pre_approval_request
+  - on_human_input_request
+  - on_room_member_activity
+config_schema:
+  subject:
+    type: str
+    description: "Contacto para el claim VAPID (mailto: o https:)"
+    default: "mailto:admin@droidbot.local"
+  rate_limit_seconds:
+    type: int
+    description: "Minimo de segundos entre pushes por perfil"
+    default: 30

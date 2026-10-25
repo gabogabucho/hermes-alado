@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '@nanostores/react'
+import { useSlideNavigate } from '../../app/transition'
 import { apiFetch } from '../../lib/api'
 import { Avatar } from '../../ui/Avatar'
+import { IconButton } from '../../ui/IconButton'
 import { loadProfiles, profiles } from '../bots/store'
 
 export function ConnectorsPage() {
+  const { back } = useSlideNavigate()
   const list = useStore(profiles)
   const [busy, setBusy] = useState('')
 
@@ -25,8 +28,11 @@ export function ConnectorsPage() {
   }
 
   return (
-    <div>
-      <h1 className="page-title">Conectores</h1>
+    <div className="settings-page">
+      <header className="page-header glass">
+        <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
+        <h1 className="page-header-title">Conectores</h1>
+      </header>
       <p className="page-subtitle">
         Gateways de mensajería de cada bot (Telegram, Discord, Slack…).
       </p>

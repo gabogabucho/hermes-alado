@@ -1,28 +1,22 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { ProfilesPage } from '../features/bots/ProfilesPage'
+import { Route, Routes } from 'react-router-dom'
 import { ChatPage } from '../features/chat/ChatPage'
 import { ConnectorsPage } from '../features/connectors/ConnectorsPage'
+import { HomePage } from '../features/home/HomePage'
 import { SettingsPage } from '../features/settings/SettingsPage'
-import { BottomNav } from './BottomNav'
 import { ReconnectBanner } from './ReconnectBanner'
 
 export function Shell() {
-  const location = useLocation()
-  const isChat = location.pathname.startsWith('/chat/')
-
   return (
     <>
       <ReconnectBanner />
-      <div className={isChat ? 'app-main chat' : 'app-main'}>
+      <div className="app-main">
         <Routes>
-          <Route path="/" element={<Navigate to="/profiles" replace />} />
-          <Route path="/profiles" element={<ProfilesPage />} />
-          <Route path="/chat/:name" element={<ChatPage />} />
-          <Route path="/connectors" element={<ConnectorsPage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/chat/:profile" element={<ChatPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/connectors" element={<ConnectorsPage />} />
         </Routes>
       </div>
-      {!isChat && <BottomNav />}
     </>
   )
 }

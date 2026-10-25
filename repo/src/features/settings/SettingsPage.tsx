@@ -1,5 +1,9 @@
 import { useState } from 'react'
 import { useStore } from '@nanostores/react'
+import { useSlideNavigate } from '../../app/transition'
+import { Icon } from '../../ui/Icon'
+import { IconButton } from '../../ui/IconButton'
+import { ListRow } from '../../ui/ListRow'
 import { checkAuth, user } from '../auth/store'
 import { backendUrl, setTheme, theme, updateBackendUrl, type ThemeChoice } from './store'
 
@@ -10,6 +14,7 @@ const THEME_OPTIONS: { value: ThemeChoice; label: string }[] = [
 ]
 
 export function SettingsPage() {
+  const { back, forward } = useSlideNavigate()
   const url = useStore(backendUrl)
   const me = useStore(user)
   const currentTheme = useStore(theme)
@@ -24,8 +29,21 @@ export function SettingsPage() {
   }
 
   return (
-    <div>
-      <h1 className="page-title">Ajustes</h1>
+    <div className="settings-page">
+      <header className="page-header glass">
+        <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
+        <h1 className="page-header-title">Ajustes</h1>
+      </header>
+
+      <div className="list" style={{ marginBottom: 14 }}>
+        <ListRow
+          leading={<Icon name="grid" />}
+          title="Conectar aplicaciones"
+          subtitle="Telegram, Discord, Slack…"
+          trailing={<Icon name="chevron-right" />}
+          onClick={() => forward('/connectors')}
+        />
+      </div>
 
       <div className="card" style={{ marginBottom: 14 }}>
         <label className="faint">Tema</label>

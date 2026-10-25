@@ -3,7 +3,6 @@ import { BrowserRouter } from 'react-router-dom'
 import { useStore } from '@nanostores/react'
 import { LoginPage } from '../features/auth/LoginPage'
 import { authStatus, checkAuth } from '../features/auth/store'
-import { loadActiveProfile } from '../features/bots/store'
 import { close, connect } from '../lib/hermes/connection'
 import { verifyContractCommit } from '../lib/hermes/contract-version'
 import { UiPage } from '../ui/UiPage'
@@ -18,7 +17,6 @@ export function App() {
 
   useEffect(() => {
     if (status !== 'authed') return
-    void loadActiveProfile()
     void verifyContractCommit()
     void connect()
     return () => close()

@@ -434,7 +434,7 @@ User=${HERMES_USER}
 Group=${HERMES_USER}
 Environment=DISPLAY=:${DISPLAY_NUM}
 Environment=XAUTHORITY=${XAUTH}
-ExecStart=/bin/bash -c 'rm -f "\$XAUTHORITY"; /usr/bin/Xvfb :${DISPLAY_NUM} -screen 0 1440x900x24 -nolisten tcp -auth "\$XAUTHORITY" & sleep 1; exec /usr/bin/openbox'
+ExecStart=/bin/bash -c 'rm -f "\$XAUTHORITY"; touch "\$XAUTHORITY"; /usr/bin/xauth -f "\$XAUTHORITY" add :${DISPLAY_NUM} . "\$(/usr/bin/mcookie)"; /usr/bin/Xvfb :${DISPLAY_NUM} -screen 0 1440x900x24 -nolisten tcp -auth "\$XAUTHORITY" & sleep 1; exec /usr/bin/openbox'
 Restart=on-failure
 RestartSec=5
 
@@ -452,7 +452,7 @@ Requires=${DISPLAY_UNIT}
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/x11vnc -display :${DISPLAY_NUM} -auth ${XAUTH} -rfbauth ${VNC_PASS_FILE} -localhost -forever -shared -rfbport ${VNC_PORT} -ncache 0 -quiet
+ExecStart=/usr/bin/x11vnc -display :${DISPLAY_NUM} -auth ${XAUTH} -rfbauth ${VNC_PASS_FILE} -localhost -forever -shared -noshm -rfbport ${VNC_PORT} -ncache 0 -quiet
 Restart=on-failure
 RestartSec=5
 
@@ -592,15 +592,15 @@ mod_browser() {
 
 mod_computer() {
   if (( !CHECK )); then
-    apt_ensure_installed xvfb openbox x11-utils
+    apt_ensure_installed xvfb openbox x11-utils xauth
   fi
   local pkgs_ok=true
-  for p in xvfb openbox x11-utils; do
+  for p in xvfb openbox x11-utils xauth; do
     pkg_installed "$p" || pkgs_ok=false
   done
   if ! $pkgs_ok; then
     set_status computer fail "faltan paquetes: xvfb/openbox/x11-utils"
-    manual "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb openbox x11-utils"
+    manual "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb openbox x11-utils xauth"
     M_DETAIL[computer]=""
     return
   fi

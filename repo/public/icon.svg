@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#e0b34c"/>
-  <text x="50%" y="54%" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="300" font-weight="800" fill="#1a1206" text-anchor="middle" dominant-baseline="middle">H</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title>Alado</title>
+<rect width="512" height="512" rx="112" fill="#0d1117"/>
+<g transform="translate(256 256) scale(4.6) translate(-50 -54.5)">
+  <path d="M18 66 C 34 64, 52 56, 64 42 C 70 35, 76 27, 82 22 C 80 34, 74 46, 64 55 C 52 66, 36 71, 18 66 Z" fill="#E8B23A"/>
+  <path d="M24 74 C 40 74, 56 68, 68 58 C 64 66, 56 74, 46 78 C 38 81, 30 80, 24 74 Z" fill="#E8B23A" fill-opacity=".78"/>
+  <path d="M32 82 C 44 83, 54 80, 62 74 C 58 81, 50 86, 42 87 C 38 87.5, 34 86, 32 82 Z" fill="#E8B23A" fill-opacity=".55"/></g></svg>

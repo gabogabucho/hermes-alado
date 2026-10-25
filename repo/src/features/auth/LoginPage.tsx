@@ -1,5 +1,6 @@
 import { useStore } from '@nanostores/react'
 import { useNavigate } from 'react-router-dom'
+import { APP_NAME, APP_TAGLINE } from '../../app/brand'
 import { loginUrl } from '../../lib/config'
 import { backendUrl } from '../settings/store'
 import { authError, authState, authStatus, checkAuth } from './store'
@@ -15,9 +16,9 @@ export function LoginPage() {
 
   return (
     <div className="login-wrap">
-      <div className="login-logo">H</div>
-      <h1 className="login-title">Hermes</h1>
-      <p className="muted">Tu agente, en el bolsillo.</p>
+      <img className="login-logo-img" src="/icon.svg" alt="" width={88} height={88} />
+      <h1 className="login-title">{APP_NAME}</h1>
+      <p className="muted">{APP_TAGLINE}</p>
 
       {unreachable && (
         <p className="error-text">No se pudo conectar al backend{error ? `: ${error}` : ''}.</p>

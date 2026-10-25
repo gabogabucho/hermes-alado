@@ -1132,3 +1132,10 @@ button {
   gap: var(--space-3);
   align-items: center;
 }
+
+.login-logo-img {
+  display: block;
+  border-radius: 22%;
+  margin: 0 auto var(--space-3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}

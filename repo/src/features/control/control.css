@@ -1,0 +1,52 @@
+/* Control del agente — feature-local styles (semantic tokens only). */
+
+.control-section {
+  margin-bottom: var(--space-5);
+}
+
+.control-section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-3);
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.control-row-title {
+  font-weight: 600;
+}
+
+.control-hint {
+  color: var(--text-2);
+  font-size: 0.78rem;
+  margin-top: 4px;
+  max-width: 320px;
+}
+
+.control-row--disabled {
+  opacity: 0.55;
+}
+
+.control-check {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-2);
+}
+
+.control-check-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* 44px touch target for Detener. */
+.control-row .btn {
+  min-height: 44px;
+}

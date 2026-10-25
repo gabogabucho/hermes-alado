@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import { ChatPage } from '../features/chat/ChatPage'
-import { ConnectorsPage } from '../features/connectors/ConnectorsPage'
+import { CatalogPage } from '../features/connectors/CatalogPage'
+import { ConnectorDetailPage } from '../features/connectors/ConnectorDetailPage'
 import { HomePage } from '../features/home/HomePage'
 import { LibraryPage } from '../features/library/LibraryPage'
 import { RoutineDetailPage } from '../features/routines/RoutineDetailPage'
@@ -18,7 +19,8 @@ export function Shell() {
           <Route path="/" element={<HomePage />} />
           <Route path="/chat/:profile" element={<ChatPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/connectors" element={<ConnectorsPage />} />
+          <Route path="/connectors" element={<CatalogPage />} />
+          <Route path="/connectors/:family/:id" element={<ConnectorDetailPage />} />
           <Route path="/bots/:profile/routines" element={<RoutinesPage />} />
           <Route path="/bots/:profile/routines/:id" element={<RoutineDetailPage />} />
           <Route path="/bots/:profile/library" element={<LibraryPage />} />

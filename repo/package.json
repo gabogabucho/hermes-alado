@@ -23,7 +23,8 @@
     "react-dom": "^19.3.1",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.4",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "uqr": "^0.1.3"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

@@ -83,7 +83,12 @@ export function ChatPage() {
         </div>
       )}
 
-      <MessageList items={list} running={isRunning} />
+      <MessageList
+        items={list}
+        running={isRunning}
+        botName={meta.displayName || profile}
+        isDefault={Boolean(bot?.isDefault)}
+      />
 
       <Composer />
 

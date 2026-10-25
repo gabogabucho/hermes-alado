@@ -3,7 +3,7 @@ import { useStore } from '@nanostores/react'
 import { apiFetch } from '../../lib/api'
 import { request } from '../../lib/hermes/connection'
 import { IconButton } from '../../ui/IconButton'
-import { chatSessionId, running, sendMessage, stop } from './store'
+import { chatMeta, chatSessionId, running, sendMessage, stop } from './store'
 
 interface Attachment {
   id: string
@@ -23,6 +23,7 @@ function fileToDataUrl(file: File): Promise<string> {
 
 export function Composer() {
   const isRunning = useStore(running)
+  const meta = useStore(chatMeta)
   const [text, setText] = useState('')
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [busy, setBusy] = useState(false)
@@ -140,7 +141,7 @@ export function Composer() {
       {recording && (
         <div className="recording-bar">
           <span className="recording-dot" />
-          <span>Grabando… {formatTime(recTime)}</span>
+          <span className="label-mono">Grabando {formatTime(recTime)}</span>
           <button className="btn btn-sm" onClick={() => setText('')}>
             Cancelar
           </button>
@@ -173,7 +174,7 @@ export function Composer() {
         <textarea
           ref={inputRef}
           className="composer-input"
-          placeholder="Mensaje…"
+          placeholder={`Dale una tarea a ${meta.displayName || 'Hermes'}`}
           rows={1}
           value={text}
           onChange={e => {

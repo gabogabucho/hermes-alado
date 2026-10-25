@@ -52,10 +52,10 @@ button {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  font-size: 0.82rem;
-  color: var(--on-accent);
-  background: var(--accent);
+  padding: 6px var(--space-4);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
 }
 
 .page-title {
@@ -298,10 +298,7 @@ button {
   font-weight: 700;
 }
 
-.home-title {
-  font-weight: 700;
-  font-size: 1.05rem;
-}
+/* The topbar wordmark is the mono chrome label (see .label-mono). */
 
 .home-scroll {
   flex: 1;
@@ -311,6 +308,8 @@ button {
 }
 
 .home-hero {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -321,6 +320,8 @@ button {
   color: inherit;
   padding: var(--space-5) 0 var(--space-4);
   font-family: inherit;
+  overflow: hidden;
+  border-radius: var(--r-lg);
 }
 
 .home-hero-name {
@@ -391,11 +392,12 @@ button {
 }
 
 .search-heading {
-  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
   font-weight: 700;
-  color: var(--text-2);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--text-2);
   margin: 0 0 var(--space-3);
 }
 
@@ -475,6 +477,29 @@ button {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* The new-session screen: wordmark over the dim grayscale texture. */
+.chat-empty {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+  overflow: hidden;
+}
+
+.chat-empty-sub {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  max-width: 30rem;
 }
 
 .msg {
@@ -604,6 +629,12 @@ button {
   cursor: pointer;
   user-select: none;
   list-style: none;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-2);
 }
 
 .tool-group summary::-webkit-details-marker {
@@ -696,19 +727,30 @@ button {
   border-top: 1px solid var(--border);
 }
 
+/* Pill composer: one capsule holding paperclip, input and the round
+   voice/send button (the desktop's "Dale una tarea a Hermes" surface). */
 .composer-row {
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-2);
+  align-items: center;
+  gap: 2px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 4px;
+}
+
+.composer:focus-within .composer-row {
+  border-color: var(--accent);
 }
 
 .composer-input {
   flex: 1;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  min-width: 0;
+  background: none;
+  border: none;
   color: var(--text-1);
-  border-radius: var(--r-md);
-  padding: 11px 16px;
+  border-radius: var(--r-full);
+  padding: 9px 10px;
   font-size: 1rem;
   font-family: inherit;
   line-height: 1.4;
@@ -718,7 +760,6 @@ button {
 
 .composer-input:focus {
   outline: none;
-  border-color: var(--accent);
 }
 
 .attach-chips {
@@ -741,6 +782,10 @@ button {
   gap: 8px;
   color: var(--danger);
   font-size: 0.85rem;
+}
+
+.recording-bar .label-mono {
+  color: var(--danger);
 }
 
 .recording-dot {

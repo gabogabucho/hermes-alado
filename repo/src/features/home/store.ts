@@ -35,6 +35,7 @@ export interface HomeBot {
     lastActive: number
   } | null
   unread: boolean
+  working: boolean
 }
 
 export const homeBots = atom<HomeBot[]>([])
@@ -105,6 +106,17 @@ function trackUnread(rows: ProfileRow[]): void {
   }
 }
 
+// Worker liveness, mirrored from the desktop roster
+// (apps/desktop/.../row-helpers.ts::workerActiveAt): kanban/tool workers
+// heartbeat last_activity_at at least every 60s, so a stamp within 150s means
+// the profile is visibly working (mood `work` on its avatar).
+const WORKER_ACTIVE_WINDOW_S = 150
+
+function workerActiveAt(row: ProfileRow, now = Date.now()): boolean {
+  const ts = row.worker_session?.last_active ?? 0
+  return Boolean(ts && now / 1000 - ts < WORKER_ACTIVE_WINDOW_S)
+}
+
 function toHomeBot(row: ProfileRow): HomeBot {
   const cs = row.canonical_session
   return {
@@ -124,6 +136,7 @@ function toHomeBot(row: ProfileRow): HomeBot {
         }
       : null,
     unread: unread.has(row.name),
+    working: workerActiveAt(row),
   }
 }
 

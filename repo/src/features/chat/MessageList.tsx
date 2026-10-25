@@ -27,7 +27,17 @@ function groupItems(items: ChatItem[]): (ChatItem | { kind: 'toolgroup'; id: str
   return out
 }
 
-export function MessageList({ items, running }: { items: ChatItem[]; running: boolean }) {
+export function MessageList({
+  items,
+  running,
+  botName,
+  isDefault,
+}: {
+  items: ChatItem[]
+  running: boolean
+  botName: string
+  isDefault: boolean
+}) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickRef = useRef(true)
   const canLoadRef = useRef(true)
@@ -74,12 +84,18 @@ export function MessageList({ items, running }: { items: ChatItem[]; running: bo
     setNewBelow(0)
   }
 
+  const wordmark = isDefault || !botName ? 'HERMES AGENT' : botName.toUpperCase()
+
   return (
     <div className="msg-wrap">
       <div className="msg-list" ref={scrollRef} onScroll={onScroll}>
         {grouped.length === 0 && !running ? (
-          <div className="empty">
-            <p className="muted">Escribí tu primer mensaje a este agente.</p>
+          <div className="chat-empty">
+            <span className="backdrop-texture" aria-hidden="true" />
+            <p className="wordmark">{wordmark}</p>
+            <p className="chat-empty-sub">
+              {botName ? `Dale una tarea a ${botName}` : 'Dale una tarea a Hermes'}
+            </p>
           </div>
         ) : (
           grouped.map(g => <Group key={g.id} g={g} />)

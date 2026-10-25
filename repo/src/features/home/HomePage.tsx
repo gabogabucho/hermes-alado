@@ -141,7 +141,7 @@ export function HomePage() {
         <span className="home-user" title={me?.display_name ?? me?.email ?? ''}>
           {(me?.display_name ?? me?.email ?? 'H').charAt(0).toUpperCase()}
         </span>
-        <span className="home-title">DroidBot</span>
+        <span className="label-mono">DroidBot</span>
         <span className="spacer" />
         <IconButton icon="plus" variant="glass" label="Nuevo" onClick={() => setSheetOpen(true)} />
       </header>
@@ -188,7 +188,14 @@ export function HomePage() {
           <>
             {principal && (
               <button className="home-hero" onClick={() => openBot(principal)}>
-                <BotAvatar name={principal.name} size="xl" ring badge />
+                <span className="backdrop-texture" aria-hidden="true" />
+                <BotAvatar
+                  name={principal.name}
+                  size="xl"
+                  ring
+                  badge
+                  mood={principal.working ? 'working' : 'idle'}
+                />
                 <span className="home-hero-name">{principal.displayName}</span>
                 <span className="home-hero-sub">
                   {principal.model || principal.description || 'Bot principal'}
@@ -200,7 +207,7 @@ export function HomePage() {
               {filtered.map(b => (
                 <ListRow
                   key={b.name}
-                  leading={<BotAvatar name={b.name} size="md" />}
+                  leading={<BotAvatar name={b.name} size="md" mood={b.working ? 'working' : 'idle'} />}
                   title={b.displayName}
                   subtitle={
                     b.canonical?.preview
@@ -257,7 +264,7 @@ export function HomePage() {
       </div>
 
       <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Nuevo">
-        <label className="faint">Nuevo bot</label>
+        <label className="label-mono">Nuevo bot</label>
         <input
           className="input"
           style={{ marginTop: 6 }}

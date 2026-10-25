@@ -43,11 +43,18 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      // Hermes owns these paths (login form, OAuth callbacks, API): the SPA
-      // fallback must never answer them, or login becomes unreachable.
-      workbox: {
-        navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /^\/login/, /^\/dashboard-plugins\//],
+      // Custom service worker (src/sw.ts): generateSW cannot carry the push /
+      // notificationclick handlers that Web Push needs.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        // El registro inyectado usa type:'classic' (register.js de
+        // vite-plugin-pwa), así que el SW se compila como script clásico.
+        rollupFormat: 'iife',
+        globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}'],
+        // Precache manifests can grow past workbox's 2 MiB default with fonts.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       includeAssets: ['favicon.svg', 'icon.svg'],
       manifest: {

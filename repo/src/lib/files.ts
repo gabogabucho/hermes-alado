@@ -1,4 +1,5 @@
 import { apiUrl } from './config'
+import { getSessionToken } from './hermes/session-token'
 
 export async function uploadFile(file: File): Promise<string> {
   const form = new FormData()
@@ -7,10 +8,12 @@ export async function uploadFile(file: File): Promise<string> {
   form.append('path', `uploads/${name}`)
   form.append('overwrite', 'true')
 
+  const token = getSessionToken()
   const res = await fetch(apiUrl('/api/files/upload-stream'), {
     method: 'POST',
     credentials: 'include',
     body: form,
+    headers: token ? { 'X-Hermes-Session-Token': token } : undefined,
   })
 
   if (!res.ok) {

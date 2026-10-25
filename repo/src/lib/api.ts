@@ -1,4 +1,5 @@
 import { apiUrl } from './config'
+import { getSessionToken } from './hermes/session-token'
 
 export class ApiError extends Error {
   status: number
@@ -14,11 +15,13 @@ export async function apiFetch<T = unknown>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  const token = getSessionToken()
   const res = await fetch(apiUrl(path), {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(init.headers ?? {}),
+      ...(token ? { 'X-Hermes-Session-Token': token } : {}),
     },
     ...init,
   })

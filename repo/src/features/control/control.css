@@ -1,24 +1,5 @@
 /* Control del agente — feature-local styles (semantic tokens only). */
 
-.control-section {
-  margin-bottom: var(--space-5);
-}
-
-.control-section-title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text-2);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 0 0 var(--space-3);
-}
-
-.control-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
 .control-row-title {
   font-weight: 600;
 }
@@ -30,58 +11,9 @@
   max-width: 320px;
 }
 
-.control-row--disabled {
-  opacity: 0.55;
-}
-
-.control-check {
+.control-auto {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-top: var(--space-2);
-}
-
-.control-check-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-/* 44px touch target for Detener. */
-.control-row .btn {
-  min-height: 44px;
-}
-
-.control-row-stack {
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.segmented {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-  padding: 4px;
-  border-radius: var(--r-full);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-}
-
-.segmented-item {
-  min-height: 40px;
-  border: 0;
-  border-radius: var(--r-full);
-  background: transparent;
-  color: var(--text-2);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.segmented-item.active {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.segmented-item:disabled {
-  opacity: 0.6;
+  gap: var(--space-3);
+  padding: var(--space-4);
 }

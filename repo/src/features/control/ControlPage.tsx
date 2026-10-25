@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@nanostores/react'
-import { useSlideNavigate } from '../../app/transition'
+import { useBack } from '../../app/transition'
 import type { ApprovalMode } from '../../lib/hermes/agent-control'
 import type { LiveSessionStatus } from '../../lib/hermes/vendor/gateway-contract.generated'
-import { IconButton } from '../../ui/IconButton'
+import { Disclosure } from '../../ui/Disclosure'
+import { PageShell } from '../../ui/PageShell'
+import { Row, Section } from '../../ui/Section'
 import { Skeleton } from '../../ui/Skeleton'
+import { StatusDot, type DotTone } from '../../ui/StatusDot'
 import { Toggle } from '../../ui/Toggle'
 import { ConfirmSheet } from '../vault/ConfirmSheet'
 import {
@@ -50,8 +53,12 @@ const APPROVAL_OPTIONS: { mode: ApprovalMode; label: string }[] = [
   { mode: 'off', label: 'Nunca' },
 ]
 
+function checkTone(status: string): DotTone {
+  return status === 'pass' || status === 'ok' ? 'ok' : 'warn'
+}
+
 export function ControlPage() {
-  const { back } = useSlideNavigate()
+  const back = useBack('/settings')
   const mode = useStore(approvalMode)
   const approvalBusy = useStore(approvalLoading)
   const approvalFail = useStore(approvalError)
@@ -91,18 +98,17 @@ export function ControlPage() {
         ? 'Modo inteligente: pide en las riesgosas y resuelve solo las de bajo riesgo.'
         : 'No pide aprobación: el bot ejecuta acciones riesgosas por su cuenta.'
 
-  return (
-    <div className="settings-page">
-      <header className="page-header glass">
-        <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
-        <h1 className="page-header-title">Control del agente</h1>
-      </header>
+  const cuReady = cu?.ready === true
+  const cuDotTone: DotTone = cu == null ? 'neutral' : cuReady ? 'ok' : 'warn'
+  const cuDotLabel = cu == null ? 'Sin información' : cuReady ? 'Listo' : 'Requiere configuración'
 
-      {/* Auto-review */}
-      <section className="control-section">
-        <h2 className="control-section-title">Auto-review</h2>
+  return (
+    <PageShell title="Control del agente" onBack={back}>
+      <Section label="Auto-review">
         {approvalBusy ? (
-          <Skeleton height={72} />
+          <div style={{ padding: 'var(--space-4)' }}>
+            <Skeleton height={72} />
+          </div>
         ) : approvalFail ? (
           <div className="empty">
             <p className="error-text">{approvalFail}</p>
@@ -111,12 +117,10 @@ export function ControlPage() {
             </button>
           </div>
         ) : (
-          <div className="card control-row control-row-stack">
-            <div className="spacer">
-              <div className="control-row-title">Pedir aprobación para acciones riesgosas</div>
-              <div className="faint">shell, MCP, computadora</div>
-              <div className="control-hint">{modeHint}</div>
-            </div>
+          <div className="control-auto">
+            <div className="control-row-title">Pedir aprobación para acciones riesgosas</div>
+            <div className="faint">shell, MCP, computadora</div>
+            <div className="control-hint">{modeHint}</div>
             <div className="segmented" role="radiogroup" aria-label="Modo de aprobación">
               {APPROVAL_OPTIONS.map(opt => (
                 <button
@@ -135,13 +139,14 @@ export function ControlPage() {
             {approvalPending && <span className="faint">Guardando…</span>}
           </div>
         )}
-      </section>
+      </Section>
 
-      {/* Computer use */}
-      <section className="control-section">
-        <h2 className="control-section-title">Computadora</h2>
+      <Section label="Computadora">
         {tsLoading ? (
-          <Skeleton height={120} />
+          <div style={{ padding: 'var(--space-4)' }}>
+            <Skeleton height={56} />
+            <Skeleton height={56} />
+          </div>
         ) : tsError ? (
           <div className="empty">
             <p className="error-text">{tsError}</p>
@@ -150,75 +155,87 @@ export function ControlPage() {
             </button>
           </div>
         ) : (
-          <div className="list">
-            <div className="card control-row">
-              <div className="spacer">
-                <div className="control-row-title">Control del computador</div>
-                <div className="faint">
-                  {cuRow?.enabled ? 'Activo' : 'Inactivo'} · toolset computer_use
-                </div>
-              </div>
-              <Toggle
-                checked={Boolean(cuRow?.enabled)}
-                onChange={on => void setToolset('computer_use', on)}
-                label="Control del computador"
-              />
-            </div>
-            <div className="card control-row">
-              <div className="spacer">
-                <div className="control-row-title">Navegador</div>
-                <div className="faint">
-                  {browserRow?.enabled ? 'Activo' : 'Inactivo'} · toolset browser
-                </div>
-              </div>
-              <Toggle
-                checked={Boolean(browserRow?.enabled)}
-                onChange={on => void setToolset('browser', on)}
-                label="Navegador"
-              />
-            </div>
-            {tsBusy && <p className="faint">Aplicando cambio…</p>}
-          </div>
+          <>
+            <Row
+              icon="monitor"
+              tint="accent"
+              title="Control del computador"
+              subtitle={
+                cuLoading ? 'Comprobando…' : <StatusDot tone={cuDotTone} label={cuDotLabel} />
+              }
+              trailing={
+                <Toggle
+                  checked={Boolean(cuRow?.enabled)}
+                  onChange={on => void setToolset('computer_use', on)}
+                  label="Control del computador"
+                />
+              }
+            />
+            <Row
+              icon="monitor"
+              title="Navegador"
+              trailing={
+                <Toggle
+                  checked={Boolean(browserRow?.enabled)}
+                  onChange={on => void setToolset('browser', on)}
+                  label="Navegador"
+                />
+              }
+            />
+            {tsBusy && <p className="faint" style={{ padding: 'var(--space-2) var(--space-4)' }}>Aplicando cambio…</p>}
+          </>
         )}
 
-        {cuLoading ? (
-          <Skeleton height={56} />
-        ) : cuError ? (
-          <div className="card" style={{ marginTop: 10 }}>
+        {!cuLoading && cuError && (
+          <div className="empty">
             <p className="error-text">{cuError}</p>
             <button className="btn" onClick={() => void loadComputerUse()}>
               Reintentar
             </button>
           </div>
-        ) : cu ? (
-          <div className="card" style={{ marginTop: 10 }}>
-            <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-              <span className={`chip${cu.ready === true ? ' ok' : cu.ready === false ? ' warn' : ''}`}>
-                {cu.ready === true ? 'Listo' : cu.ready === false ? 'Faltan permisos' : 'Estado desconocido'}
-              </span>
-              <span className="chip">{cu.installed ? (cu.version ?? 'Instalado') : 'Driver no instalado'}</span>
-              <span className={`chip${cu.platform_supported ? ' ok' : ''}`}>
-                {cu.platform_supported ? `Soporta ${cu.platform}` : `Sin soporte (${cu.platform})`}
-              </span>
-            </div>
-            {cu.error && <p className="error-text">{cu.error}</p>}
-            {cu.checks.map(check => (
-              <div key={check.label} className="control-check">
-                <span className="control-check-label">{check.label}</span>
-                <span className="faint">
-                  {check.status}: {check.message}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </section>
+        )}
 
-      {/* Tarea en curso */}
-      <section className="control-section">
-        <h2 className="control-section-title">Tarea en curso</h2>
+        {!cuLoading && cu && (
+          <div className="advanced-block">
+            <Disclosure title="Detalles técnicos">
+              <Section>
+                {cu.error && (
+                  <Row
+                    icon="bolt"
+                    tint="danger"
+                    title="Error"
+                    subtitle={cu.error}
+                  />
+                )}
+                <Row
+                  title="Driver"
+                  value={cu.installed ? (cu.version ?? 'Instalado') : 'No instalado'}
+                  trailing={<StatusDot tone={cu.installed ? 'ok' : 'warn'} />}
+                />
+                <Row
+                  title="Plataforma"
+                  value={cu.platform_supported ? `Soporta ${cu.platform}` : `Sin soporte (${cu.platform})`}
+                  trailing={<StatusDot tone={cu.platform_supported ? 'ok' : 'warn'} />}
+                />
+                {cu.checks.map(check => (
+                  <Row
+                    key={check.label}
+                    title={check.label}
+                    subtitle={check.message}
+                    trailing={<StatusDot tone={checkTone(check.status)} />}
+                  />
+                ))}
+              </Section>
+            </Disclosure>
+          </div>
+        )}
+      </Section>
+
+      <Section label="Tarea en curso">
         {sessionsBusy ? (
-          <Skeleton height={64} />
+          <div style={{ padding: 'var(--space-4)' }}>
+            <Skeleton height={56} />
+          </div>
         ) : sessionsFail ? (
           <div className="empty">
             <p className="error-text">{sessionsFail}</p>
@@ -227,42 +244,34 @@ export function ControlPage() {
             </button>
           </div>
         ) : running.length === 0 ? (
-          <p className="muted">No hay tareas en curso.</p>
+          <p className="muted" style={{ padding: 'var(--space-3) var(--space-4)' }}>
+            No hay tareas en curso.
+          </p>
         ) : (
-          <div className="list">
-            {running.map(session => (
-              <div key={session.id} className="card control-row">
-                <div className="spacer">
-                  <div className="control-row-title">{session.title || 'Tarea'}</div>
-                  <div className="faint">
-                    {SESSION_STATUS_LABELS[session.status]}
-                    {session.model ? ` · ${session.model}` : ''}
-                  </div>
-                </div>
+          running.map(session => (
+            <Row
+              key={session.id}
+              title={session.title || 'Tarea'}
+              subtitle={
+                SESSION_STATUS_LABELS[session.status] + (session.model ? ` · ${session.model}` : '')
+              }
+              trailing={
                 <button
                   className="btn btn-danger btn-sm"
-                  style={{ minHeight: 44 }}
                   disabled={stopping === session.id}
                   onClick={() => setStopTarget(session.id)}
                 >
                   {stopping === session.id ? '…' : 'Detener'}
                 </button>
-              </div>
-            ))}
-          </div>
+              }
+            />
+          ))
         )}
-      </section>
+      </Section>
 
-      {/* Level 2 placeholder */}
-      <section className="control-section">
-        <h2 className="control-section-title">Pantalla</h2>
-        <div className="card control-row control-row--disabled" aria-disabled="true">
-          <div className="spacer">
-            <div className="control-row-title">Ver pantalla y tomar el control</div>
-            <div className="faint">Próximamente</div>
-          </div>
-        </div>
-      </section>
+      <Section label="Pantalla">
+        <Row title="Ver pantalla y tomar el control" value="Próximamente" />
+      </Section>
 
       <ConfirmSheet
         open={stopTarget !== ''}
@@ -277,6 +286,6 @@ export function ControlPage() {
           void stopSession(id)
         }}
       />
-    </div>
+    </PageShell>
   )
 }

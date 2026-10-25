@@ -5,6 +5,7 @@ import { resolveAuth, type AuthState } from './auth'
 import { getSessionToken } from './session-token'
 import type { RpcMethods, BackendGatewayEventMap, GatewayEvent } from './rpc-types'
 import { JsonRpcGatewayClient } from './vendor/json-rpc-gateway'
+import type { ServerRequestHandler } from './vendor/json-rpc-channel'
 import { reconnectBackoffDelayMs } from './vendor/reconnect-backoff'
 
 export type ConnectionState = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
@@ -181,6 +182,18 @@ export function on<E extends keyof BackendGatewayEventMap>(
 export function onAny(handler: (event: GatewayEvent) => void): () => void {
   return client.onAny(handler)
 }
+
+/**
+ * Register a handler for server→client requests (approval, clarify, sudo,
+ * secret, …). The vendored channel already advertises `client.capabilities
+ * {server_requests:true}` on connect; this just routes inbound requests to
+ * callers. Handlers are tried in registration order until one accepts.
+ */
+export function onRequest(handler: ServerRequestHandler): () => void {
+  return client.onRequest(handler)
+}
+
+export type { ServerRequest } from './vendor/json-rpc-channel'
 
 // Immediate reconnect on network return / tab becoming visible.
 window.addEventListener('online', wake)

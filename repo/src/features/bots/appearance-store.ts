@@ -2,7 +2,7 @@ import { atom } from 'nanostores'
 import { useStore } from '@nanostores/react'
 import type { ProfileRow } from '../../lib/hermes/rpc-types'
 import { botAppearance, isBackfilledFacePng, type AvatarAppearance, type BotMeta } from '../../ui/avatar/appearance'
-import { homeBots, homeProfiles, loadHome } from '../home/store'
+import { homeBots, homeProfiles, invalidateBotAvatar, loadHome } from '../home/store'
 
 /**
  * Read-only resolution of `profile name → AvatarAppearance`, mirroring the
@@ -65,4 +65,14 @@ export function ensureAppearances(): void {
 export function useBotAppearance(name: string): AvatarAppearance {
   const map = useStore(appearances)
   return map.get(name) ?? botAppearance(name, undefined)
+}
+
+/**
+ * Drop a bot's cached photo after a profile/avatar save so the new look
+ * reloads everywhere (home hero, rows, chat header, group messages). The
+ * home store re-pulls the asset and the `homeBots` listener recomputes
+ * `appearances` when it lands.
+ */
+export function invalidateBotAppearance(name: string): void {
+  invalidateBotAvatar(name)
 }

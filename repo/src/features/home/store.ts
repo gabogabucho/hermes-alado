@@ -79,6 +79,18 @@ export function setFeaturedBot(name: string | null): void {
 const avatarCache = new Map<string, string>()
 const avatarFetching = new Set<string>()
 
+/**
+ * Forget one bot's cached photo and re-pull it (and the rest of the roster's
+ * still-missing photos) so an edit in the profile editor shows up everywhere
+ * immediately. Called via `invalidateBotAppearance` after a save.
+ */
+export function invalidateBotAvatar(name: string): void {
+  avatarCache.delete(name)
+  avatarFetching.delete(name)
+  const rows = homeProfiles.get()
+  if (rows.some(r => r.name === name)) fetchAvatars(rows)
+}
+
 // Unread watermarks + set (client-side; hidden Bot Chats have no server unread).
 let watermarksSeeded = false
 const watermarks = new Map<string, number>()

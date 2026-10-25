@@ -25,8 +25,9 @@ Product plan: `../PLAN-droidbot-v2.md`. Phase briefs: `../docs/briefs/`.
    **No `Co-Authored-By`, no AI attribution in commits.**
 7. Do not run `npm run build` / `vite build`. Verification allowed:
    `npx tsc -p tsconfig.app.json --noEmit` and `npm run lint`.
-   **Never run `npm run dev` / `vite` in the foreground** — it never exits and blocks you.
-   If you must check the dev server, start it in the background, curl it, then kill it.
+   **Never start the dev server (`npm run dev`, `vite`, `npx vite`) at all** — on this Windows
+   machine background starts fail and fall back to a foreground server that never exits and
+   blocks you. Runtime/visual checks are done by the architect.
 8. Keep it simple: no speculative abstractions, no features beyond the brief.
 9. **Never touch the VPS** (no ssh, no deploy). Deploys to
    `droidbot.gabrielurrutia.com.ar` (`/var/www/droidbot`, unused v1 — free to replace) are

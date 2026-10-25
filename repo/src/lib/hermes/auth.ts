@@ -67,3 +67,20 @@ export async function resolveAuth(): Promise<AuthState> {
     return { mode: 'unreachable', error: e instanceof Error ? e.message : String(e) }
   }
 }
+
+/**
+ * Mint a single-use WS ticket (30 s TTL). Fired IN PARALLEL with the boot
+ * `auth/me` so the socket dial never waits on it serially — a 401 here just
+ * means logged out (`tui_gateway/chat_ws.py` answers the ticket endpoint the
+ * same way). Returns null on any failure; the caller decides what null means.
+ */
+export async function mintWsTicket(): Promise<string | null> {
+  try {
+    const { ticket } = await apiFetch<{ ticket: string }>('/api/auth/ws-ticket', {
+      method: 'POST',
+    })
+    return typeof ticket === 'string' && ticket ? ticket : null
+  } catch {
+    return null
+  }
+}

@@ -54,6 +54,9 @@ export default defineConfig({
         // vite-plugin-pwa), así que el SW se compila como script clásico.
         rollupFormat: 'iife',
         globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}'],
+        // Los chunks lazy del live viewer (noVNC ≈ 1.4 MB) se excluyen del
+        // precache: se cachean en runtime al primer uso (ver src/sw.ts).
+        globIgnores: ['**/*novnc*', '**/*ComputerLivePage*'],
         // Precache manifests can grow past workbox's 2 MiB default with fonts.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },

@@ -29,6 +29,12 @@ everything; we are the opposite: one-hand, on-the-go, glanceable (GrokBot is the
 4. **No secrets in client storage** (localStorage/IndexedDB/cookies you set). Only the
    backend URL may be persisted. Session tokens live in memory only.
    Never call `/api/env/reveal`. No payment cards anywhere.
+   *Phase 10a exception (the only one):* the last-known **roster** is cached in localStorage
+   (`droidbot.roster.<backend>`, stale-while-revalidate) and **avatar assets** in IndexedDB
+   (`droidbot/avatar-assets`, 24 h TTL) so Home paints instantly on later boots. Both hold
+   only non-secret display data (bot names, titles, avatar appearance/look — never message previews,
+   session ids the roster already exposes) and are keyed by backend origin. Nothing else
+   may join them.
 5. Visual inspiration from GrokBot is structural only. Two themes: `hermes` (warm
    near-black + gold) and `clean` (light gray/white, ink accent). Components use semantic
    tokens only — never raw hex. Our own avatar shapes and typography.

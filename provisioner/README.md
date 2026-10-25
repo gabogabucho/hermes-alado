@@ -1,9 +1,10 @@
-# Provisioner — Hermes DroidBot (phase 7b)
+# Provisioner — Hermes DroidBot (phase 7b/7c)
 
 Prepares an Ubuntu/Debian VPS so the DroidBot PWA works against Hermes: system libraries for
 the bundled Chromium, the packages Hermes' official Bot Desktop needs (one Xfce desktop per
 bot profile), HTTPS access without your own domain (sslip.io or Tailscale), PWA cache headers
-in Caddy, atomic PWA deploys, and the `droidbot-push` Hermes plugin (web push to the phone).
+in Caddy, atomic PWA deploys, the `droidbot-push` Hermes plugin (web push to the phone), and
+the `alado-companion` skill (teaches every bot it is talked to from Alado, not Hermes Desktop).
 Idempotent, with `--check` diagnostics and a `--dry-run` rehearsal.
 
 ## One-line usage
@@ -32,6 +33,13 @@ sudo bash prepare.sh push                                 # uses hermes-plugin/d
 sudo bash prepare.sh push --plugin-src ./hermes-plugin/droidbot_push
 ```
 
+With the alado-companion skill (every bot learns it is talked to from Alado):
+
+```bash
+sudo bash prepare.sh companion              # uses skills/ next to the script
+sudo bash prepare.sh companion --skills-src ./skills
+```
+
 ## Diagnostics
 
 ```bash
@@ -50,6 +58,7 @@ sudo bash prepare.sh --dry-run --all    # prints the commands without running an
 | `caddy`    | Marked cache-header block for the PWA: `no-cache` for `/sw.js /registerSW.js /index.html /manifest.webmanifest /workbox-*.js`, `immutable` for `/assets/*`. Backs up the Caddyfile and validates before reloading. |
 | `droidbot` | Installs/updates the PWA at `/var/www/droidbot` from `--dist <path|url.tar.gz>` with an atomic swap (the previous version stays in `droidbot.prev`) and a sha256 marker that skips identical redeploys. |
 | `push`     | Installs the `droidbot-push` Hermes plugin (web push to the phone when a bot finishes a turn or waits for you): copies `--plugin-src` (default `hermes-plugin/droidbot_push` next to the script) into `~/.hermes/plugins/droidbot_push`, installs `pywebpush>=2,<3` into Hermes' PM-managed Python (`~/.hermes/tools/python-*/bin/python`), runs `hermes plugins enable droidbot-push` as the hermes user, and verifies `GET /api/plugins/droidbot-push/vapid-public-key` → 401 unauthenticated (route mounted). Prints the Hermes restart command — it never restarts Hermes itself. Until the plugin is published on GitHub this folder copy is the install path (then: `hermes plugins install <git-url> --yes-deps --enable`). |
+| `companion` | Installs the `alado-companion` skill for every bot profile so they stop pointing users at Hermes Desktop menus that don't exist in Alado: copies `--skills-src/alado-companion` (default `skills/` next to the script) to `~/.hermes/alado-skills/` (hermes-owned), MERGES `~/.hermes/alado-skills` into each profile's `skills.external_dirs` via `hermes -p <profile> config get/set` (existing entries are never dropped), and upserts the marked `<!-- alado:begin/end -->` block into each profile's `SOUL.md` (`~/.hermes/SOUL.md` for the default profile, `~/.hermes/profiles/<name>/SOUL.md` otherwise) — text outside the markers is never touched. `--check` reports ok/missing per profile. |
 
 ## Flags
 
@@ -64,6 +73,8 @@ sudo bash prepare.sh --dry-run --all    # prints the commands without running an
 --dist <path|url>     PWA tar.gz for the droidbot module.
 --plugin-src <path>   droidbot-push plugin source folder for the push module
                       (default: hermes-plugin/droidbot_push next to the script).
+--skills-src <path>   alado-companion skill source folder for the companion module
+                      (default: skills/ next to the script).
 ```
 
 ## Documentation

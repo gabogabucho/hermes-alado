@@ -3,8 +3,10 @@
 `provisioner/prepare.sh` leaves an Ubuntu/Debian VPS ready to serve the DroidBot PWA against
 Hermes: "set up basic Hermes → run one script → open the PWA → Hermes works from your phone".
 That includes the `droidbot-push` Hermes plugin, so the phone also gets push notifications when
-a bot finishes a turn or waits for you. The script is reviewed and run by the architect (never
-from the dev machine; AGENTS.md rule 9).
+a bot finishes a turn or waits for you, and the `alado-companion` skill, so every bot knows it
+is talked to from Alado (not Hermes Desktop) and stops sending the user to desktop menus that
+don't exist there. The script is reviewed and run by the architect (never from the dev machine;
+AGENTS.md rule 9).
 
 Hermes source of truth: the `.hermes-ref` checkout pinned to `bf0203a`. The script assumes the
 reference VPS state: Ubuntu 24.04, Hermes installed for the `hermes` user
@@ -30,6 +32,10 @@ sudo bash prepare.sh --all --access tailscale  # https://<machine>.<tailnet>.ts.
 sudo bash prepare.sh push                                  # hermes-plugin/droidbot_push next to the script
 sudo bash prepare.sh push --plugin-src ./hermes-plugin/droidbot_push
 
+# alado-companion skill for every bot profile (they stop pointing at Hermes Desktop menus):
+sudo bash prepare.sh companion                  # skills/ next to the script
+sudo bash prepare.sh companion --skills-src ./skills
+
 # diagnostics (changes nothing):
 sudo bash prepare.sh --check                 # exit 0 = all OK, 1 = problems
 sudo bash prepare.sh --check --json          # schema below (consumed by the PWA "Health" screen)
@@ -50,13 +56,14 @@ command (`[manual] ...`).
 |------|--------|
 | `--check` | Diagnostics only. Exit 0 = OK, 1 = `fail`/`unknown` in some module. Never writes. |
 | `--json` | Emit the diagnostics as JSON (requires `--check`). |
-| `--all` | Apply the six modules. |
+| `--all` | Apply the seven modules. |
 | `--dry-run` | Print the commands it would run; verifies nothing that mutates state. |
 | `--hermes-user <user>` | Owner of `~/.hermes`. Default: auto-detects via `/home/*/.hermes` (if unique) and falls back to `hermes`. |
 | `--domain <host>` | Public domain (access/caddy site blocks + verifications). |
 | `--access <mode>` | `sslip` or `tailscale`. Ignored when `--domain` is given. Interactive prompt when stdin is a TTY; defaults to `sslip`. |
 | `--dist <path\|url>` | PWA tar.gz for `droidbot`. |
 | `--plugin-src <path>` | `droidbot-push` plugin source folder for `push` (default: `hermes-plugin/droidbot_push` next to the script). |
+| `--skills-src <path>` | `alado-companion` skill source folder for `companion` (default: `skills/` next to the script). |
 
 ## Modules and system changes
 
@@ -251,6 +258,47 @@ In `--check` mode nothing is touched: it reports `unknown` when the plugin is no
 `fail` when installed-but-disabled or `pywebpush` is missing from Hermes' Python, and `warn`
 when everything is in place but the routes are not mounted yet (restart pending).
 
+### 7. companion — the alado-companion skill (teach every bot it lives in Alado)
+
+Bots answered "go to Hermes Desktop → Bots → Screen → Take over" because the gateway tells them
+they are in the TUI; Alado users have no desktop menus. The fix, verified live by the architect
+on the VPS: install the `alado-companion` skill (repo folder `skills/alado-companion`) at
+`~/.hermes/alado-skills/`, merge that dir into every profile's `skills.external_dirs`, and
+point to the skill from every profile's `SOUL.md` with a marked block — without the SOUL pointer
+the model does NOT load the skill, with it, it does (`skill_view alado-companion` → correct
+Alado steps). New bots created from Alado use `clone_from`, which copies `config.yaml` +
+`SOUL.md`, so they inherit both automatically.
+
+The module (as root; the skill copy is chown'ed to the hermes user because the default source
+may sit under `/root`):
+
+1. **Validates the source** from `--skills-src` (default: the `skills/` folder next to the
+   script): requires `alado-companion/SKILL.md` and `alado-companion/soul-block.md`.
+   Missing/invalid → `fail` with the manual steps.
+2. **Copies** `alado-companion` to `~/.hermes/alado-skills/alado-companion/` (stage → swap,
+   so a failed copy never leaves a half skill). Idempotent: every source file is
+   sha256-compared against the installed copy; identical → "already up to date".
+3. **Merges `~/.hermes/alado-skills` into `skills.external_dirs` per profile** (default
+   profile + every `~/.hermes/profiles/<name>/`): reads the current list with
+   `hermes -p <profile> config get skills.external_dirs`, appends the entry only when absent,
+   and writes with `hermes -p <profile> config set skills.external_dirs '[...]'` as the hermes
+   user. Existing entries are **never dropped**; a value the script cannot parse is reported
+   (`unparsable`) with a manual merge command instead of being overwritten.
+4. **Upserts the marked SOUL block per profile** into `~/.hermes/SOUL.md` (default) or
+   `~/.hermes/profiles/<name>/SOUL.md` (others): strips any existing block between
+   `<!-- alado:begin -->` and `<!-- alado:end -->`, collapses trailing blank lines, ensures
+   exactly one blank line before the fresh block from `soul-block.md`, and appends it at the
+   end of the file. A missing `SOUL.md` is created with the block. Text outside the markers is
+   never touched. A stale/misplaced block (content changed, missing blank line, text after the
+   block) is detected by `--check` (`soul_block: stale`) and replaced on apply.
+5. **Verifies** after acting: the skill files exist, and per profile `external_dirs: ok` +
+   `soul_block: ok` are re-read through the hermes CLI and the file system.
+
+In `--check` mode nothing is touched: it reports `unknown` when the skill is not installed,
+and per profile whether the `external_dirs` entry and the SOUL block are `ok`, `missing`,
+`stale` or `unparsable` (in the note and in the JSON `profiles` array). `fail` when any profile
+is not fully wired.
+
 ## Idempotency and verification
 
 | Mechanism | Where |
@@ -260,6 +308,7 @@ when everything is in place but the routes are not mounted yet (restart pending)
 | Legacy cleanup: every removal is guarded by existence checks; re-runs are no-ops | botdesktop |
 | PWA: sha256 marker; identical redeploy = no-op | droidbot |
 | Plugin: per-file sha256 compare against the installed copy; pip install only when the import/version check fails; `hermes plugins enable` is idempotent | push |
+| Skill: per-file sha256 compare against the installed copy; `skills.external_dirs` merged via read-modify-write (`config get` → append only when absent → `config set`); SOUL block compared by content sha and re-upserted only when stale/misplaced | companion |
 | `hermes config set` only writes when the value differs; `--check` only reads (`config get`) | access |
 | `--check` never writes (guards in `upsert_marked_block`/`replace_whole_site_block`; cleanup reports only) | global |
 | Real verification after acting; exact `[manual]` on failure | all modules |
@@ -268,7 +317,8 @@ Per-module verification: `ldd` 0 "not found" + `--dump-dom` (browser); every `RE
 on PATH (botdesktop); site block present + `dashboard.public_url` + auth check + local probe
 (access); `caddy validate` + real headers (caddy); `index.html`+`sw.js`+sha (droidbot); plugin
 installed + enabled + `pywebpush` importable + unauth probe of `/api/plugins/droidbot-push/
-vapid-public-key` → 401 (push).
+vapid-public-key` → 401 (push); skill files present + per-profile `external_dirs` and SOUL block
+re-read after acting (companion).
 
 ## JSON schema of `--check --json`
 
@@ -278,7 +328,7 @@ vapid-public-key` → 401 (push).
 ```json
 {
   "schema": 2,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "mode": "check",
   "ok": true,
   "generated_at": "2026-10-25T00:00:00Z",
@@ -355,6 +405,18 @@ vapid-public-key` → 401 (push).
       "pywebpush_ok": true,
       "route_mounted": true,
       "probe": "401"
+    },
+    "companion": {
+      "status": "ok",
+      "installed": true,
+      "skill_dir": "/home/hermes/.hermes/alado-skills/alado-companion",
+      "source": "/root/Hermes-Droidbot/skills",
+      "profiles": [
+        { "name": "default", "soul": "/home/hermes/.hermes/SOUL.md",
+          "external_dirs": "ok", "soul_block": "ok" },
+        { "name": "marta", "soul": "/home/hermes/.hermes/profiles/marta/SOUL.md",
+          "external_dirs": "ok", "soul_block": "ok" }
+      ]
     }
   }
 }
@@ -375,6 +437,12 @@ vapid-public-key` → 401 (push).
   the auth gate, `200` without one, `503` when the plugin has not initialized its VAPID key);
   `null` when Hermes is unreachable or the probe was skipped. `push.source` is the resolved
   `--plugin-src` in apply mode and `null` in `--check`.
+- `companion.profiles[]`: one entry per profile (the default profile plus every
+  `~/.hermes/profiles/<name>/`), with the profile's `SOUL.md` path and two states:
+  `external_dirs` (`ok` | `missing` | `unparsable` — the stored list is read through
+  `hermes -p <profile> config get`) and `soul_block` (`ok` | `stale` | `missing`). The module
+  status is `ok` only when every profile is fully wired; `companion.source` is the resolved
+  `--skills-src`.
 - Nullable everywhere: `chrome`, `cua_driver`, `dist_sha256`, `up_to_date`,
   `ldd_not_found`/`dump_dom`, `caddy_version`, `sw_cache_header`/`assets_cache_header`,
   `probe_root`, access fields, `push.python`/`push.probe`/`push.source`.
@@ -398,8 +466,12 @@ vapid-public-key` → 401 (push).
   `~/.hermes/tools/python-*/lib/.../site-packages` (pywebpush pip-installed into Hermes'
   PM-managed Python); `hermes plugins enable droidbot-push` writes `plugins.enabled` and syncs
   the PM environment. The Hermes restart is printed, never run.
+- `~/.hermes/alado-skills/alado-companion/` (the skill, hermes-owned) and, per profile,
+  `skills.external_dirs` in `config.yaml` (via `hermes -p <profile> config set`, merged — never
+  overwritten) and the marked alado block at the end of `SOUL.md` (`~/.hermes/SOUL.md` and
+  `~/.hermes/profiles/<name>/SOUL.md`).
 
-Nothing else inside `~/.hermes/` is touched; no Hermes file is edited.
+Nothing else inside `~/.hermes/` is touched; no Hermes file is edited by hand.
 
 ## Risks and open questions
 
@@ -443,12 +515,30 @@ Nothing else inside `~/.hermes/` is touched; no Hermes file is edited.
   the module reports `warn` with the restart hint.
 - **Ports 8081** (tailscale catch-all): fixed. If there is a conflict on the VPS, edit the
   constant in the script.
+- **companion: `skills.external_dirs` value format**: the merge expects the CLI to echo a
+  flow-style list (`['/a', '/b']` or `["/a", "/b"]`) or a bare single path. Anything else is
+  reported `unparsable` and the module refuses to overwrite it (a manual merge command is
+  printed), so user entries are never lost even if Hermes changes the output format.
+- **companion: profile addressing**: profiles are wired with `hermes -p <profile>` where the
+  default profile is addressed as `-p default` and the others by their `~/.hermes/profiles/`
+  directory name — the exact invocation the architect verified live on the VPS. If a profile
+  directory exists but has no CLI-accessible config, `config get` reads empty and `config set`
+  creates it.
+- **companion: SOUL.md pick-up timing**: the SOUL block and `skills.external_dirs` are read by
+  the gateway per bot session; no Hermes restart is printed (the live fix applied by hand took
+  effect for new sessions). If a running session still mentions the TUI, start a new one.
+- **companion: `-p default` vs plain `hermes config`**: the module always uses the explicit
+  `-p <profile>` form; if the default profile's config lives elsewhere on an older Hermes, the
+  `config get` reads empty and the module reports it — re-check on the next VPS run.
 
 ## Verification of this script (AGENTS.md rule 7)
 
-Never run against the VPS (rule 9). Validated on the dev machine: `bash -n` (syntax), unit
-tests of the pure functions (marked-block upsert/strip idempotency, access/tailscale templates,
-JSON escaping, no mutation in `--check`, `resolve_domain_auto`, `access_site_present`), and
-the JSON emitted by `emit_json` parsed with `python -m json.tool` in three scenarios (sslip,
-tailscale with empty units, empty module detail). The real run against the VPS is done by the
-architect, first with `--check` and `--dry-run`.
+Never run against the VPS (rule 9). Validated on the dev machine: `bash -n` (syntax),
+`shellcheck -S warning` (0 findings), unit tests of the pure functions (marked-block
+upsert/strip idempotency, access/tailscale templates, JSON escaping, no mutation in `--check`,
+`resolve_domain_auto`, `access_site_present`), and functional tests of the companion module
+against a fake `hermes` CLI and a fake `~/.hermes` tree (apply/check/dry-run, idempotency,
+`external_dirs` merge never drops entries, SOUL block upsert keeps outside text, stale/CRLF
+self-heal), plus the JSON emitted by `emit_json` parsed with `python -m json.tool` in three
+scenarios (sslip, tailscale with empty units, empty module detail). The real run against the
+VPS is done by the architect, first with `--check` and `--dry-run`.

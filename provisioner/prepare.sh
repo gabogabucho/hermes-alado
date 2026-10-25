@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# prepare.sh — Hermes DroidBot provisioner (phase 7b)
+# prepare.sh — Hermes DroidBot provisioner (phase 7b/7c)
 #
 # Prepares an Ubuntu/Debian VPS so the DroidBot PWA can talk to Hermes:
 #   browser    system libraries for Hermes' bundled Chromium (verified headless)
@@ -15,6 +15,13 @@
 #              hermes-plugin/droidbot_push to ~/.hermes/plugins/, install its
 #              pywebpush dependency into Hermes' Python, enable it as the hermes
 #              user and print the restart command (never restarts Hermes)
+#   companion  alado-companion skill for every bot profile: copy
+#              skills/alado-companion to ~/.hermes/alado-skills/, MERGE that dir
+#              into each profile's skills.external_dirs (`hermes -p <p> config
+#              get/set`, never dropping existing entries) and upsert the marked
+#              alado block in each profile's SOUL.md between <!-- alado:begin -->
+#              and <!-- alado:end --> so bots know they are talked to from Alado
+#              and stop pointing users at Hermes Desktop menus that don't exist
 #
 # Idempotent: re-running changes nothing that is already correct.
 # Diagnostics: --check (read-only, exit 0/1) and --check --json.
@@ -44,10 +51,16 @@
 #     Python.binary_rel) — the interpreter serve/gateway run with
 #   - plugin dashboard routes mount at /api/plugins/<name>/... with the dashboard
 #     session auth inherited; unauthenticated GETs get 401
+#   - skills.external_dirs: per-profile config list of extra skill dirs; default
+#     profile config at ~/.hermes/config.yaml, others at
+#     ~/.hermes/profiles/<name>/config.yaml — managed only via
+#     `hermes -p <profile> config get/set` (phase 7c brief, verified live)
+#   - profile SOUL.md: ~/.hermes/SOUL.md (default),
+#     ~/.hermes/profiles/<name>/SOUL.md (others)
 
 set -euo pipefail
 
-VERSION="2.1.0"
+VERSION="2.2.0"
 SCHEMA=2
 
 # --- Constants ------------------------------------------------------------------
@@ -74,7 +87,6 @@ CADDY_DESKTOP_END="# END droidbot-preparer:desktop"
 ACCESS_SITE_BEGIN_RE="^# BEGIN droidbot-preparer:site "
 ACCESS_SITE_END_RE="^# END droidbot-preparer:site "
 TAILSCALE_SITE_BEGIN="# BEGIN droidbot-preparer:tailscale-site (managed — do not edit)"
-TAILSCALE_SITE_END="# END droidbot-preparer:tailscale-site"
 TAILSCALE_SITE_BEGIN_RE="^# BEGIN droidbot-preparer:tailscale-site"
 TAILSCALE_SITE_END_RE="^# END droidbot-preparer:tailscale-site"
 # Push plugin (backlog: Preparer: push module).
@@ -82,6 +94,16 @@ PLUGIN_NAME="droidbot-push"        # manifest name: `hermes plugins enable` id
 PLUGIN_FOLDER="droidbot_push"      # folder name inside ~/.hermes/plugins/
 PLUGIN_DEP="pywebpush>=2,<3"       # pinned in plugin.yaml python_dependencies
 PUSH_ROUTE="/api/plugins/${PLUGIN_NAME}/vapid-public-key"
+# Alado companion skill (phase 7c): teach every bot it lives in Alado (phone PWA),
+# not Hermes Desktop — stop "go to Hermes Desktop → Bots → Screen" answers.
+ALADO_SKILL_DIR_NAME="alado-companion"      # skill folder (source and installed)
+# The tilde form is intentional: it is the literal config entry Hermes expands
+# for the hermes user (~/.hermes/alado-skills).
+# shellcheck disable=SC2088
+ALADO_SKILLS_ENTRY="~/.hermes/alado-skills"
+ALADO_CONFIG_KEY="skills.external_dirs"
+SOUL_BLOCK_BEGIN="<!-- alado:begin -->"
+SOUL_BLOCK_END="<!-- alado:end -->"
 
 # Directory of this script (empty when piped from stdin, e.g. curl | bash -s):
 # used only for the default --plugin-src.
@@ -100,7 +122,8 @@ ARG_DOMAIN=""
 ARG_DIST=""
 ARG_ACCESS=""
 ARG_PLUGIN_SRC=""
-MODULES=("browser" "botdesktop" "access" "caddy" "droidbot" "push")
+ARG_SKILLS_SRC=""
+MODULES=("browser" "botdesktop" "access" "caddy" "droidbot" "push" "companion")
 declare -A M_STATUS=() M_NOTE=() M_DETAIL=()
 APT_UPDATED=0
 SYSTEMD_AVAILABLE=0
@@ -126,6 +149,17 @@ CADDY_BIN=""
 CADDY_VERSION=""
 PLUGIN_SRC=""
 HERMES_PYTHON=""
+SKILLS_SRC=""
+ALADO_SKILLS_DIR=""
+PROFILES=()
+LIST_ENTRIES=()
+MISSING_DIRS=()
+MISSING_SOUL=()
+COMP_PROFILES_JSON=""
+P_NAME=""
+P_SOUL=""
+P_DIRS_STATE=""
+P_SOUL_STATE=""
 
 # --- Logging ---------------------------------------------------------------------
 info() { printf '[info] %s\n' "$*" >&2; }
@@ -1812,6 +1846,388 @@ EOF
   set_status push ok "routes mounted — GET ${PUSH_ROUTE} → ${probe} (unauthenticated)"
 }
 
+# --- Companion module (phase 7c) ---------------------------------------------------
+# Teaches every bot profile it is talked to from Alado (the phone PWA), not Hermes
+# Desktop: ships the alado-companion skill and wires it into every profile.
+# Verified live by the architect: without the SOUL pointer the model did NOT load
+# the skill; with it, it did (skill_view alado-companion → correct Alado steps).
+# New bots created from Alado use clone_from (copies config.yaml + SOUL.md), so
+# they inherit both automatically.
+
+# Resolves the skills source folder: --skills-src wins; the default is the skills/
+# folder next to the provisioner directory (mirror of resolve_plugin_src).
+resolve_skills_src() {
+  local default_src="skills"
+  if [[ -n $SCRIPT_DIR ]]; then
+    default_src="$SCRIPT_DIR/../skills"
+  fi
+  if [[ -n $ARG_SKILLS_SRC ]]; then
+    SKILLS_SRC=$ARG_SKILLS_SRC
+  else
+    SKILLS_SRC=$default_src
+  fi
+  SKILLS_SRC=$(cd "$SKILLS_SRC" 2>/dev/null && pwd || printf '%s' "$SKILLS_SRC")
+}
+
+skill_source_valid() {
+  [[ -f $SKILLS_SRC/$ALADO_SKILL_DIR_NAME/SKILL.md \
+    && -f $SKILLS_SRC/$ALADO_SKILL_DIR_NAME/soul-block.md ]]
+}
+
+# Profiles to wire: the default profile plus every ~/.hermes/profiles/<name>/.
+collect_profiles() {
+  PROFILES=("default")
+  local d
+  shopt -s nullglob
+  for d in "$HERMES_HOME"/profiles/*/; do
+    [[ -d $d ]] && PROFILES+=("$(basename "$d")")
+  done
+  shopt -u nullglob
+}
+
+# SOUL.md path of a profile: ~/.hermes/SOUL.md for the default profile,
+# ~/.hermes/profiles/<name>/SOUL.md otherwise.
+soul_file_for() {
+  if [[ $1 == "default" ]]; then
+    printf '%s/SOUL.md' "$HERMES_HOME"
+  else
+    printf '%s/profiles/%s/SOUL.md' "$HERMES_HOME" "$1"
+  fi
+}
+
+# Parses a flow-style list ("['/a', '/b']" / '["/a", "/b"]') or a bare single path
+# into LIST_ENTRIES. Returns 1 (parse failed) when the input is non-empty but not a
+# recognized shape — callers then refuse to overwrite the config.
+parse_list_entries() {
+  LIST_ENTRIES=()
+  local raw=$1 part
+  [[ $raw == *$'\n'* ]] && return 1
+  raw=${raw//$'\r'/}
+  [[ -z $raw ]] && return 0
+  if [[ $raw == "["*"]" ]]; then
+    raw=${raw#\[}
+    raw=${raw%\]}
+  elif [[ $raw == *,* ]]; then
+    return 1
+  fi
+  [[ -z $raw ]] && return 0
+  local parts
+  IFS=',' read -r -a parts <<< "$raw"
+  for part in "${parts[@]}"; do
+    part=${part##[[:space:]]}
+    part=${part%%[[:space:]]}
+    if [[ $part == \"*\" ]]; then
+      part=${part#\"}
+      part=${part%\"}
+    elif [[ $part == \'*\' ]]; then
+      part=${part#\'}
+      part=${part%\'}
+    fi
+    part=${part//\"/}
+    part=${part//\'/}
+    [[ -n $part ]] && LIST_ENTRIES+=("$part")
+  done
+  ((${#LIST_ENTRIES[@]} > 0)) || return 1
+  return 0
+}
+
+# Renders LIST_ENTRIES as a flow-style list for `hermes config set` (['a', 'b']).
+render_list_entries() {
+  local out="" e
+  for e in "${LIST_ENTRIES[@]}"; do
+    out+="'${e}', "
+  done
+  out=${out%, }
+  printf '[%s]' "$out"
+}
+
+# True when LIST_ENTRIES already contains the alado-skills dir (tilde or expanded).
+dirs_entry_present() {
+  local e
+  for e in "${LIST_ENTRIES[@]}"; do
+    [[ $e == "$ALADO_SKILLS_ENTRY" || $e == "$ALADO_SKILLS_DIR" ]] && return 0
+  done
+  return 1
+}
+
+# Profile-aware read: `hermes -p <profile> config get` ("" when unset/absent).
+hermes_config_get_p() {
+  local profile=$1 key=$2 out=""
+  if ! hermes_cli_exists; then
+    return 0
+  fi
+  out=$(hermes_cmd hermes -p "$profile" config get "$key" 2>/dev/null || true)
+  [[ $out == *"not set"* ]] && out=""
+  printf '%s' "$out"
+}
+
+# sha256 of the block content between the markers in <file> ("" when absent).
+soul_inner_sha() {
+  awk -v b="$SOUL_BLOCK_BEGIN" -v e="$SOUL_BLOCK_END" '
+    index($0, b) > 0 { ins = 1; next }
+    index($0, e) > 0 { ins = 0; next }
+    ins { print }
+  ' "$1" 2>/dev/null | sha256sum | awk '{print $1}'
+}
+
+# True when <file> ends with the block from <blockfile>: identical block content,
+# preceded by exactly one blank line (or first line), and nothing but blank lines
+# after it. Stale/misplaced blocks fail → the module strips and re-appends.
+soul_block_ok() {
+  local file=$1 blockfile=$2
+  [[ -f $file && -f $blockfile ]] || return 1
+  local want cur
+  want=$(soul_inner_sha "$blockfile")
+  [[ -n $want ]] || return 1
+  cur=$(soul_inner_sha "$file")
+  [[ $cur == "$want" ]] || return 1
+  awk -v b="$SOUL_BLOCK_BEGIN" -v e="$SOUL_BLOCK_END" '
+    index($0, b) > 0 {
+      in_blk = 1
+      ok = (NR == 1) || (prev ~ /^[[:space:]]*$/ && prev_prev !~ /^[[:space:]]*$/)
+      next
+    }
+    in_blk && index($0, e) > 0 { in_blk = 0; seen_end = 1; next }
+    in_blk { next }
+    seen_end && $0 !~ /^[[:space:]]*$/ { ok = 0 }
+    { prev_prev = prev; prev = $0 }
+    END { if (in_blk) ok = 0; exit (ok ? 0 : 1) }
+  ' "$file"
+}
+
+# Appends <blockfile> to <file>: collapses trailing blank lines and ensures exactly
+# one blank line before the block. An empty/blank-only file gets the block only.
+append_block_at_end() {
+  local file=$1 blockfile=$2
+  if (( DRY )); then
+    printf '[dry-run] append block (%s) to %s\n' "$blockfile" "$file"
+    return 0
+  fi
+  local tmp=$file.droidbot.tmp.$$
+  awk -v blk="$blockfile" '
+    { lines[NR] = $0 }
+    END {
+      n = NR
+      while (n > 0 && lines[n] ~ /^[[:space:]]*$/) n--
+      if (n > 0) {
+        for (i = 1; i <= n; i++) print lines[i]
+        print ""
+      }
+      while ((getline x < blk) > 0) print x
+      close(blk)
+    }
+  ' "$file" > "$tmp"
+  mv "$tmp" "$file"
+  return 0
+}
+
+# Reads one profile's state into P_NAME/P_SOUL/P_DIRS_STATE/P_SOUL_STATE
+# (external_dirs: ok|missing|unparsable; soul_block: ok|stale|missing).
+companion_read_profile() {
+  local profile=$1 blockfile=$2 current
+  P_NAME=$profile
+  P_SOUL=$(soul_file_for "$profile")
+  current=$(hermes_config_get_p "$profile" "$ALADO_CONFIG_KEY")
+  if [[ -z $current ]]; then
+    P_DIRS_STATE="missing"
+  elif ! parse_list_entries "$current"; then
+    P_DIRS_STATE="unparsable"
+  elif dirs_entry_present; then
+    P_DIRS_STATE="ok"
+  else
+    P_DIRS_STATE="missing"
+  fi
+  if [[ -f $P_SOUL ]] && soul_block_ok "$P_SOUL" "$blockfile"; then
+    P_SOUL_STATE="ok"
+  elif [[ -f $P_SOUL ]] && grep -qF "$SOUL_BLOCK_BEGIN" "$P_SOUL"; then
+    P_SOUL_STATE="stale"
+  else
+    P_SOUL_STATE="missing"
+  fi
+}
+
+# JSON array of all profiles. Fills the globals COMP_PROFILES_JSON and
+# MISSING_DIRS/MISSING_SOUL (profiles whose state is not "ok"). Must be called
+# WITHOUT command substitution (a $( ) subshell would drop the side effects).
+companion_profiles_json() {
+  local blockfile=$1 p out=""
+  MISSING_DIRS=()
+  MISSING_SOUL=()
+  for p in "${PROFILES[@]}"; do
+    companion_read_profile "$p" "$blockfile"
+    out+="{\"name\":$(printf '%s' "$P_NAME" | json_escape | sed 's/^/"/;s/$/"/'),\"soul\":$(printf '%s' "$P_SOUL" | json_escape | sed 's/^/"/;s/$/"/'),\"external_dirs\":\"${P_DIRS_STATE}\",\"soul_block\":\"${P_SOUL_STATE}\"},"
+    [[ $P_DIRS_STATE == "ok" ]] || MISSING_DIRS+=("$p")
+    [[ $P_SOUL_STATE == "ok" ]] || MISSING_SOUL+=("$p")
+  done
+  COMP_PROFILES_JSON=${out%,}
+}
+
+# Merges ~/.hermes/alado-skills into <profile>'s skills.external_dirs, reading the
+# current list first and never dropping entries the user had. 0 = ok/up to date.
+companion_ensure_dirs() {
+  local profile=$1 current new_list
+  if ! hermes_cli_exists; then
+    warn "companion: no 'hermes' CLI on PATH for user ${HERMES_USER}; wire skills.external_dirs manually:"
+    manual "runuser -u ${HERMES_USER} -- hermes -p ${profile} config set ${ALADO_CONFIG_KEY} '[\"${ALADO_SKILLS_ENTRY}\"]'"
+    return 1
+  fi
+  current=$(hermes_config_get_p "$profile" "$ALADO_CONFIG_KEY")
+  if [[ -n $current ]]; then
+    if ! parse_list_entries "$current"; then
+      warn "companion: ${profile}: could not parse '${ALADO_CONFIG_KEY}' (${current}) — merge it by hand so no entry is lost:"
+      manual "runuser -u ${HERMES_USER} -- hermes -p ${profile} config set ${ALADO_CONFIG_KEY} '[existing entries..., \"${ALADO_SKILLS_ENTRY}\"]'"
+      return 1
+    fi
+    if dirs_entry_present; then
+      info "companion: ${profile}: ${ALADO_CONFIG_KEY} already includes ${ALADO_SKILLS_ENTRY}"
+      return 0
+    fi
+  else
+    LIST_ENTRIES=() # empty/unset config: start a fresh list (no leftovers)
+  fi
+  LIST_ENTRIES+=("$ALADO_SKILLS_ENTRY")
+  new_list=$(render_list_entries)
+  if (( DRY )); then
+    run_hermes hermes -p "$profile" config set "$ALADO_CONFIG_KEY" "$new_list"
+    return 0
+  fi
+  if run_hermes hermes -p "$profile" config set "$ALADO_CONFIG_KEY" "$new_list" >/dev/null 2>&1; then
+    info "companion: ${profile}: ${ALADO_CONFIG_KEY} set to ${new_list} (merged)"
+    return 0
+  fi
+  warn "companion: ${profile}: 'hermes -p ${profile} config set ${ALADO_CONFIG_KEY}' failed"
+  manual "runuser -u ${HERMES_USER} -- hermes -p ${profile} config set ${ALADO_CONFIG_KEY} '${new_list}'"
+  return 1
+}
+
+# Upserts the marked alado block into <profile>'s SOUL.md (replace-or-append; text
+# outside the markers is never touched). 0 = ok/up to date.
+companion_ensure_soul() {
+  local profile=$1 blockfile=$2 soul
+  soul=$(soul_file_for "$profile")
+  if [[ -f $soul ]] && soul_block_ok "$soul" "$blockfile"; then
+    info "companion: ${profile}: SOUL block already correct (${soul})"
+    return 0
+  fi
+  if [[ ! -f $soul ]]; then
+    cmd mkdir -p "$(dirname "$soul")"
+    if ! cmd cp "$blockfile" "$soul"; then
+      warn "companion: ${profile}: could not create ${soul}"
+      manual "cp '${blockfile}' '${soul}'"
+      return 1
+    fi
+    cmd chown "$HERMES_USER:" "$soul"
+    info "companion: ${profile}: created ${soul} with the alado block"
+    return 0
+  fi
+  strip_marked_block "$soul" "$SOUL_BLOCK_BEGIN" "$SOUL_BLOCK_END" || true
+  if ! append_block_at_end "$soul" "$blockfile"; then
+    warn "companion: ${profile}: could not update ${soul}"
+    return 1
+  fi
+  cmd chown "$HERMES_USER:" "$soul"
+  info "companion: ${profile}: SOUL block upserted in ${soul}"
+  return 0
+}
+
+mod_companion() {
+  if (( CHECK )); then
+    check_companion
+    return
+  fi
+
+  local skill_src_dir="$SKILLS_SRC/$ALADO_SKILL_DIR_NAME"
+  local skill_dir="$ALADO_SKILLS_DIR/$ALADO_SKILL_DIR_NAME"
+
+  if ! skill_source_valid; then
+    set_status companion fail "no alado-companion skill source at ${SKILLS_SRC} (SKILL.md + soul-block.md required)"
+    manual "copy skills/alado-companion from the repo to the VPS and pass --skills-src <path>"
+    M_DETAIL[companion]=$(cat <<EOF
+"installed":$([[ -f $skill_dir/SKILL.md && -f $skill_dir/soul-block.md ]] && echo true || echo false),"skill_dir":$(printf '%s' "$skill_dir" | json_escape | sed 's/^/"/;s/$/"/'),"source":$(printf '%s' "$SKILLS_SRC" | json_escape | sed 's/^/"/;s/$/"/'),"profiles":[]
+EOF
+    )
+    M_DETAIL[companion]=$(printf '%s' "${M_DETAIL[companion]}" | tr -d '\n\t')
+    return
+  fi
+
+  # 1. Copy the skill dir to ~/.hermes/alado-skills/ (hermes-owned; stage/swap so a
+  # failed copy never leaves a half skill).
+  if tree_matches "$skill_src_dir" "$skill_dir"; then
+    info "companion: skill already up to date at ${skill_dir}"
+  else
+    cmd mkdir -p "$ALADO_SKILLS_DIR"
+    cmd rm -rf "$skill_dir.droidbot-stage"
+    if ! cmd cp -r "$skill_src_dir" "$skill_dir.droidbot-stage"; then
+      set_status companion fail "could not copy the skill source to ${skill_dir}"
+      manual "cp -r '${skill_src_dir}' '${ALADO_SKILLS_DIR}/${ALADO_SKILL_DIR_NAME}'"
+      M_DETAIL[companion]="\"installed\":false,\"skill_dir\":$(printf '%s' "$skill_dir" | json_escape | sed 's/^/"/;s/$/"/'),\"source\":$(printf '%s' "$SKILLS_SRC" | json_escape | sed 's/^/"/;s/$/"/'),\"profiles\":[]"
+      return
+    fi
+    cmd chown -R "$HERMES_USER:" "$skill_dir.droidbot-stage"
+    cmd rm -rf "$skill_dir"
+    cmd mv "$skill_dir.droidbot-stage" "$skill_dir"
+    info "companion: skill copied to ${skill_dir}"
+  fi
+  cmd chown "$HERMES_USER:" "$ALADO_SKILLS_DIR"
+
+  # 2/3. Every profile: merge external_dirs + upsert the SOUL block.
+  collect_profiles
+  local p blockfile="$skill_dir/soul-block.md"
+  for p in "${PROFILES[@]}"; do
+    companion_ensure_dirs "$p" || true
+    companion_ensure_soul "$p" "$blockfile" || true
+  done
+
+  companion_profiles_json "$blockfile"
+  local installed=false
+  [[ -f $skill_dir/SKILL.md && -f $skill_dir/soul-block.md ]] && installed=true
+
+  M_DETAIL[companion]=$(cat <<EOF
+"installed":${installed},"skill_dir":$(printf '%s' "$skill_dir" | json_escape | sed 's/^/"/;s/$/"/'),"source":$(printf '%s' "$SKILLS_SRC" | json_escape | sed 's/^/"/;s/$/"/'),"profiles":[${COMP_PROFILES_JSON}]
+EOF
+  )
+  M_DETAIL[companion]=$(printf '%s' "${M_DETAIL[companion]}" | tr -d '\n\t')
+
+  if (( DRY )); then
+    set_status companion ok "(rehearsal) skill copied, external_dirs merged and SOUL block upserted per profile"
+    return
+  fi
+  if ((${#MISSING_DIRS[@]} > 0 || ${#MISSING_SOUL[@]} > 0)); then
+    set_status companion fail "external_dirs missing in ${#MISSING_DIRS[@]} profile(s) (${MISSING_DIRS[*]}); SOUL block missing/stale in ${#MISSING_SOUL[@]} profile(s) (${MISSING_SOUL[*]})"
+    return
+  fi
+  set_status companion ok "skill installed; ${#PROFILES[@]} profile(s) wired (external_dirs + SOUL block)"
+}
+
+check_companion() {
+  local skill_dir="$ALADO_SKILLS_DIR/$ALADO_SKILL_DIR_NAME"
+  local blockfile="$skill_dir/soul-block.md"
+  local installed=false
+  [[ -f $skill_dir/SKILL.md && -f $skill_dir/soul-block.md ]] && installed=true
+
+  collect_profiles
+
+  companion_profiles_json "$blockfile"
+
+  M_DETAIL[companion]=$(cat <<EOF
+"installed":${installed},"skill_dir":$(printf '%s' "$skill_dir" | json_escape | sed 's/^/"/;s/$/"/'),"source":$(printf '%s' "$SKILLS_SRC" | json_escape | sed 's/^/"/;s/$/"/'),"profiles":[${COMP_PROFILES_JSON}]
+EOF
+  )
+  M_DETAIL[companion]=$(printf '%s' "${M_DETAIL[companion]}" | tr -d '\n\t')
+
+  if ! $installed; then
+    set_status companion unknown "skill not installed at ${skill_dir} — apply the companion module"
+    manual "sudo bash prepare.sh companion --skills-src <path-to-skills>"
+    return
+  fi
+  if ((${#MISSING_DIRS[@]} == 0 && ${#MISSING_SOUL[@]} == 0)); then
+    set_status companion ok "skill installed; all ${#PROFILES[@]} profile(s) wired (external_dirs + SOUL block)"
+    return
+  fi
+  set_status companion fail "external_dirs missing in ${#MISSING_DIRS[@]} profile(s) (${MISSING_DIRS[*]}); SOUL block missing/stale in ${#MISSING_SOUL[@]} profile(s) (${MISSING_SOUL[*]})"
+  manual "sudo bash prepare.sh companion"
+}
+
 # --- Output --------------------------------------------------------------------------
 print_summary() {
   printf '\n== Summary ==\n'
@@ -1900,7 +2316,7 @@ usage() {
   cat <<EOF
 Usage: prepare.sh [flags] [module...]
 
-Modules: browser botdesktop access caddy droidbot push  (or --all)
+Modules: browser botdesktop access caddy droidbot push companion  (or --all)
 
 Flags:
   --check                Diagnostics only (changes nothing). Exit 0 = all OK, 1 = problems.
@@ -1914,6 +2330,8 @@ Flags:
   --dist <path|url>      PWA tar.gz for the droidbot module.
   --plugin-src <path>    droidbot-push plugin source folder for the push module
                          (default: hermes-plugin/droidbot_push next to this script).
+  --skills-src <path>    alado-companion skill source folder for the companion module
+                         (default: skills/ next to this script).
   -h, --help             This help.
 
 Examples:
@@ -1921,6 +2339,7 @@ Examples:
   prepare.sh --all --access sslip      # <public-ip>.sslip.io + Caddy cert
   prepare.sh --all --access tailscale  # https://<machine>.<tailnet>.ts.net
   prepare.sh push                      # plugin from hermes-plugin/droidbot_push
+  prepare.sh companion                 # skill from skills/ next to this script
   prepare.sh --check --json
   prepare.sh --check browser botdesktop
 EOF
@@ -1929,7 +2348,7 @@ EOF
 # --- Main -----------------------------------------------------------------------------
 main() {
   local opts
-  opts=$(getopt -o h -l check,json,all,dry-run,hermes-user:,domain:,dist:,access:,plugin-src:,help -- "$@") \
+  opts=$(getopt -o h -l check,json,all,dry-run,hermes-user:,domain:,dist:,access:,plugin-src:,skills-src:,help -- "$@") \
     || { usage; exit 2; }
   eval set -- "$opts"
 
@@ -1944,6 +2363,7 @@ main() {
       --dist) ARG_DIST=$2; shift 2 ;;
       --access) ARG_ACCESS=$2; shift 2 ;;
       --plugin-src) ARG_PLUGIN_SRC=$2; shift 2 ;;
+      --skills-src) ARG_SKILLS_SRC=$2; shift 2 ;;
       -h | --help) usage; exit 0 ;;
       --) shift; break ;;
     esac
@@ -1989,11 +2409,13 @@ main() {
   set_browser_packages
   set_botdesktop_packages
   resolve_hermes_user
+  ALADO_SKILLS_DIR="$HERMES_HOME/alado-skills"
   find_chrome || true
   find_cua_driver || true
   detect_hermes_units
   find_caddy
   resolve_plugin_src
+  resolve_skills_src
   find_hermes_python || true
 
   local needs_access=0
@@ -2023,6 +2445,7 @@ main() {
       caddy) mod_caddy ;;
       droidbot) mod_droidbot ;;
       push) mod_push ;;
+      companion) mod_companion ;;
     esac
   done
 

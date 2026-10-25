@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Avatar } from '../../ui/Avatar'
 import { IconButton } from '../../ui/IconButton'
+import { useBotAppearance } from '../bots/appearance-store'
 import { Markdown } from './markdown'
 import { loadOlder, retryLast, type ChatItem } from './store'
 
@@ -127,6 +129,7 @@ function Group({ g }: { g: ReturnType<typeof groupItems>[number] }) {
     case 'agent':
       return (
         <div className="msg-note">
+          <NoteAvatar name={g.sender} />
           <span>
             Mensaje de <b>{g.sender}</b>
           </span>
@@ -141,6 +144,7 @@ function Group({ g }: { g: ReturnType<typeof groupItems>[number] }) {
     case 'delivery':
       return (
         <div className="msg-note">
+          <NoteAvatar name={g.target} />
           <span>
             Escribió a <b>{g.target}</b>
             {g.pending ? '…' : ''}
@@ -193,6 +197,11 @@ function Group({ g }: { g: ReturnType<typeof groupItems>[number] }) {
     case 'tool':
       return null
   }
+}
+
+function NoteAvatar({ name }: { name: string }) {
+  const appearance = useBotAppearance(name)
+  return <Avatar name={name} size="xs" appearance={appearance} />
 }
 
 function TypingIndicator() {

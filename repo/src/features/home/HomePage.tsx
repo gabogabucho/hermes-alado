@@ -4,9 +4,10 @@ import { useSlideNavigate } from '../../app/transition'
 import { apiFetch } from '../../lib/api'
 import { previewSubtitle } from '../../lib/hermes/bot-to-bot'
 import { createProfile } from '../bots/store'
+import { useBotAppearance } from '../bots/appearance-store'
 import { user } from '../auth/store'
 import { profileForSession, requests } from '../chat/requests'
-import { Avatar } from '../../ui/Avatar'
+import { Avatar, type AvatarMood, type AvatarSize } from '../../ui/Avatar'
 import { Icon } from '../../ui/Icon'
 import { IconButton } from '../../ui/IconButton'
 import { ListRow } from '../../ui/ListRow'
@@ -41,6 +42,25 @@ interface SearchHit {
   profile?: string
   preview?: string
   snippet?: string
+}
+
+/** Avatar resolved from the appearance store (profile's stored look, photo
+ *  included) — the desktop's exact face for this bot. */
+function BotAvatar({
+  name,
+  size = 'md',
+  mood = 'idle',
+  ring = false,
+  badge = false,
+}: {
+  name: string
+  size?: AvatarSize
+  mood?: AvatarMood
+  ring?: boolean
+  badge?: boolean
+}) {
+  const appearance = useBotAppearance(name)
+  return <Avatar name={name} size={size} mood={mood} ring={ring} badge={badge} appearance={appearance} />
 }
 
 export function HomePage() {
@@ -168,7 +188,7 @@ export function HomePage() {
           <>
             {principal && (
               <button className="home-hero" onClick={() => openBot(principal)}>
-                <Avatar name={principal.name} size="xl" ring badge image={principal.avatarUrl} />
+                <BotAvatar name={principal.name} size="xl" ring badge />
                 <span className="home-hero-name">{principal.displayName}</span>
                 <span className="home-hero-sub">
                   {principal.model || principal.description || 'Bot principal'}
@@ -180,7 +200,7 @@ export function HomePage() {
               {filtered.map(b => (
                 <ListRow
                   key={b.name}
-                  leading={<Avatar name={b.name} size="md" image={b.avatarUrl} />}
+                  leading={<BotAvatar name={b.name} size="md" />}
                   title={b.displayName}
                   subtitle={
                     b.canonical?.preview

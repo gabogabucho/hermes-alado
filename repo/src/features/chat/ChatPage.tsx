@@ -5,6 +5,7 @@ import { useSlideNavigate } from '../../app/transition'
 import { Avatar } from '../../ui/Avatar'
 import { IconButton } from '../../ui/IconButton'
 import { Sheet } from '../../ui/Sheet'
+import { useBotAppearance, ensureAppearances } from '../bots/appearance-store'
 import { homeBots } from '../home/store'
 import { Composer } from './Composer'
 import { MessageList } from './MessageList'
@@ -34,8 +35,10 @@ export function ChatPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const bot = bots.find(b => b.name === profile)
+  const appearance = useBotAppearance(profile)
 
   useEffect(() => {
+    ensureAppearances()
     setChatVisible(true)
     void openChat(profile, bot?.displayName).catch(() => undefined)
     return () => {
@@ -52,7 +55,7 @@ export function ChatPage() {
       <header className="chat-header glass">
         <IconButton icon="back" variant="ghost" label="Volver" onClick={back} />
         <button className="chat-header-identity" onClick={() => setSheetOpen(true)}>
-          <Avatar name={profile} size="sm" mood={isRunning ? 'thinking' : 'idle'} image={bot?.avatarUrl ?? null} />
+          <Avatar name={profile} size="sm" mood={isRunning ? 'thinking' : 'idle'} appearance={appearance} />
           <span className="chat-title">{meta.displayName || profile}</span>
         </button>
         <span className="spacer" />
@@ -86,7 +89,7 @@ export function ChatPage() {
 
       <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={meta.displayName || profile}>
         <div className="row">
-          <Avatar name={profile} size="lg" image={bot?.avatarUrl ?? null} />
+          <Avatar name={profile} size="lg" appearance={appearance} />
           <div>
             <div className="sheet-name">{meta.displayName || profile}</div>
             {bot?.model && <div className="faint">{bot.model}</div>}

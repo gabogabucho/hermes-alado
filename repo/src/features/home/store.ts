@@ -40,6 +40,14 @@ export interface HomeBot {
 export const homeBots = atom<HomeBot[]>([])
 export const homeLoading = atom<boolean>(true)
 export const homeError = atom<string>('')
+
+/**
+ * The raw `profiles.list` rows behind `homeBots`. The appearance store derives
+ * `AvatarAppearance`s from these (ui_meta + photo) so nobody fetches the list
+ * twice.
+ */
+export const homeProfiles = atom<ProfileRow[]>([])
+
 export const activeProfile = atom<string>('default')
 
 // Avatars: name -> data URL, cached per session (memory only).
@@ -142,6 +150,7 @@ async function refresh(): Promise<void> {
     const rows = res?.profiles ?? []
     const ordered = orderBots(rows)
     trackUnread(rows)
+    homeProfiles.set(ordered)
     homeBots.set(ordered.map(toHomeBot))
     fetchAvatars(rows)
     homeError.set('')

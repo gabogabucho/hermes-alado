@@ -49,6 +49,7 @@ export function Avatar({
   appearance,
   ring = false,
   badge = false,
+  busy = false,
 }: {
   name: string
   size?: AvatarSize | number
@@ -63,12 +64,22 @@ export function Avatar({
   appearance?: AvatarAppearance | null
   ring?: boolean
   badge?: boolean
+  /** Live "running a turn" pulse (pauses under prefers-reduced-motion). */
+  busy?: boolean
 }): ReactElement {
   const px = typeof size === 'number' ? size : SIZES[size]
   const resolved = resolveAppearance(name, appearance, shape, color, image)
 
   return (
     <span className="avatar" style={{ width: px, height: px }}>
+      {busy && (
+        <span
+          className="avatar-busy-ring"
+          style={{ width: px + 8, height: px + 8 }}
+          aria-label="Trabajando"
+          role="status"
+        />
+      )}
       {ring && resolved.image && <span className="avatar-ring" style={{ width: px, height: px }} />}
       {ring && !resolved.image && (
         <svg className="avatar-ring-svg" width={px} height={px} viewBox="0 0 40 44" aria-hidden="true">

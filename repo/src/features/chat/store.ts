@@ -4,6 +4,7 @@ import { deliveryTargetFromCommand, parseAgentMessage, replyTextFromResult } fro
 import { on, request } from '../../lib/hermes/connection'
 import { setSessionUnread } from '../../lib/hermes/session-mutations'
 import type { TranscriptMessage } from '../../lib/hermes/rpc-types'
+import { registerBusySessionProfile } from '../home/busy-store'
 import { setVisibleProfile } from '../home/store'
 import { registerSessionProfile } from './requests'
 
@@ -160,9 +161,9 @@ function normalizeHistory(messages: TranscriptMessage[]): ChatItem[] {
 
 const CANONICAL_TITLE = 'Bot Chat'
 
-async function findCanonical(): Promise<{ id: string; resolvedId: string } | null> {
+async function findCanonicalFor(name: string): Promise<{ id: string; resolvedId: string } | null> {
   const res = await request('session.list', {
-    profile,
+    profile: name,
     title: CANONICAL_TITLE,
     limit: 200,
     include_hidden: true,
@@ -172,12 +173,32 @@ async function findCanonical(): Promise<{ id: string; resolvedId: string } | nul
   return null
 }
 
+// The canonical lookup is serial in openChat (`session.list` → `session.resume`),
+// so Home prefetches the featured bot's id while idle. A cached entry is only a
+// fast path: `session.resume` remains the authority and a failure drops the
+// entry and re-runs the full lookup.
+const canonicalCache = new Map<string, { id: string; resolvedId: string }>()
+
+/** Resolve (and remember) a profile's "Bot Chat" id without opening it. */
+export async function prefetchCanonical(name: string): Promise<void> {
+  if (canonicalCache.has(name)) return
+  try {
+    const found = await findCanonicalFor(name)
+    if (found) canonicalCache.set(name, found)
+  } catch {
+    // prefetch nicety only; the tap falls back to the full serial flow
+  }
+}
+
+function dropCachedCanonical(name: string): void {
+  canonicalCache.delete(name)
+}
+
 let openGeneration = 0
 
 export async function openChat(name: string, metaDisplayName?: string): Promise<void> {
   closeChat()
   const generation = ++openGeneration
-  const stale = () => generation !== openGeneration
   profile = name
   displayName = metaDisplayName ?? name
   chatMeta.set({ name, displayName })
@@ -185,60 +206,85 @@ export async function openChat(name: string, metaDisplayName?: string): Promise<
   openError.set('')
 
   try {
-    const existing = await findCanonical()
-    if (stale()) return
-
-    if (existing) {
-      const res = await request('session.resume', { session_id: existing.resolvedId, profile })
-      if (stale()) return
-      liveSid = res.session_id
-      storedId = res.stored_session_id ?? existing.id
-      registerSessionProfile(liveSid, name)
-      registerSessionProfile(String(storedId), name)
-      historyOffset = res.messages?.length ?? 0
-      items.set(normalizeHistory(res.messages ?? []))
-      if (res.inflight) hydrateInflight(res.inflight)
-      if (res.running) running.set(true)
-    } else {
-      const created = await request('session.create', {
-        profile,
-        title: CANONICAL_TITLE,
-        hidden: true,
-        follow_profile_config: true,
-      })
-      if (stale()) return
-      liveSid = created.session_id
-      storedId = created.stored_session_id
-      // Eager title write, like the desktop's createCanonicalChat: session.create is lazy
-      // and the turn-start auto-titler would otherwise retitle the row ("Respondé solo…"),
-      // so the next open could no longer find "Bot Chat" and would fork a fresh chat.
-      try {
-        await request('session.title', { session_id: liveSid, title: CANONICAL_TITLE })
-      } catch {
-        // Uniqueness rejection = someone else holds "Bot Chat" now: adopt it (adopt-before-mint).
-        const winner = await findCanonical()
-        if (winner) {
-          const res = await request('session.resume', { session_id: winner.resolvedId, profile })
-          if (stale()) return
-          liveSid = res.session_id
-          storedId = res.stored_session_id ?? winner.id
-          registerSessionProfile(liveSid, name)
-          registerSessionProfile(String(storedId), name)
-          historyOffset = res.messages?.length ?? 0
-          items.set(normalizeHistory(res.messages ?? []))
-          void markRead()
-          return
-        }
-      }
-      registerSessionProfile(liveSid, name)
-      registerSessionProfile(String(storedId), name)
-      items.set(normalizeHistory(created.messages ?? []))
-    }
-
-    void markRead()
+    await runOpen(name, generation, true)
   } catch (e) {
     openError.set(e instanceof Error ? e.message : 'No se pudo abrir el chat')
   }
+}
+
+async function runOpen(name: string, generation: number, allowCache: boolean): Promise<void> {
+  const stale = () => generation !== openGeneration
+
+  const existing = allowCache
+    ? (canonicalCache.get(name) ?? (await findCanonicalFor(name)))
+    : await findCanonicalFor(name)
+  if (stale()) return
+
+  if (existing) {
+    let res
+    try {
+      res = await request('session.resume', { session_id: existing.resolvedId, profile })
+    } catch (e) {
+      // A prefetched id can go stale (Bot Chat deleted/renamed elsewhere):
+      // drop it and re-run the full lookup once before surfacing the error.
+      if (!allowCache) throw e
+      dropCachedCanonical(name)
+      if (stale()) return
+      await runOpen(name, generation, false)
+      return
+    }
+    if (stale()) return
+    liveSid = res.session_id
+    storedId = res.stored_session_id ?? existing.id
+    registerSessionProfile(liveSid, name)
+    registerSessionProfile(String(storedId), name)
+    registerBusySessionProfile(liveSid, name)
+    // Keep the prefetch cache on the live tip (compression rotates ids).
+    canonicalCache.set(name, { id: String(storedId), resolvedId: String(storedId) })
+    historyOffset = res.messages?.length ?? 0
+    items.set(normalizeHistory(res.messages ?? []))
+    if (res.inflight) hydrateInflight(res.inflight)
+    if (res.running) running.set(true)
+  } else {
+    const created = await request('session.create', {
+      profile,
+      title: CANONICAL_TITLE,
+      hidden: true,
+      follow_profile_config: true,
+    })
+    if (stale()) return
+    liveSid = created.session_id
+    storedId = created.stored_session_id
+    // Eager title write, like the desktop's createCanonicalChat: session.create is lazy
+    // and the turn-start auto-titler would otherwise retitle the row ("Respondé solo…"),
+    // so the next open could no longer find "Bot Chat" and would fork a fresh chat.
+    try {
+      await request('session.title', { session_id: liveSid, title: CANONICAL_TITLE })
+    } catch {
+      // Uniqueness rejection = someone else holds "Bot Chat" now: adopt it (adopt-before-mint).
+      const winner = await findCanonicalFor(name)
+      if (winner) {
+        const res = await request('session.resume', { session_id: winner.resolvedId, profile })
+        if (stale()) return
+        liveSid = res.session_id
+        storedId = res.stored_session_id ?? winner.id
+        registerSessionProfile(liveSid, name)
+        registerSessionProfile(String(storedId), name)
+        registerBusySessionProfile(liveSid, name)
+        historyOffset = res.messages?.length ?? 0
+        items.set(normalizeHistory(res.messages ?? []))
+        void markRead()
+        return
+      }
+    }
+    registerSessionProfile(liveSid, name)
+    registerSessionProfile(String(storedId), name)
+    registerBusySessionProfile(liveSid, name)
+    items.set(normalizeHistory(created.messages ?? []))
+    canonicalCache.set(name, { id: String(storedId), resolvedId: String(storedId) })
+  }
+
+  void markRead()
 }
 
 function hydrateInflight(inflight: { assistant?: string; user?: string; streaming?: boolean; error?: string | null }): void {

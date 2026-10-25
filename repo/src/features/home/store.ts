@@ -2,6 +2,8 @@ import { atom } from 'nanostores'
 import { apiFetch } from '../../lib/api'
 import { on, request } from '../../lib/hermes/connection'
 import type { ProfileRow } from '../../lib/hermes/rpc-types'
+import { deleteCachedAvatar, readCachedAvatar, writeCachedAvatar } from './avatar-cache'
+import { readRosterCache, writeRosterCache } from './roster-cache'
 
 /**
  * Home list data.
@@ -98,6 +100,7 @@ const avatarFetching = new Set<string>()
 export function invalidateBotAvatar(name: string): void {
   avatarCache.delete(name)
   avatarFetching.delete(name)
+  void deleteCachedAvatar(name)
   const rows = homeProfiles.get()
   if (rows.some(r => r.name === name)) fetchAvatars(rows)
 }
@@ -200,17 +203,26 @@ function toHomeBot(row: ProfileRow): HomeBot {
   }
 }
 
-/** Pull the avatar for rows that have one, once per session. Fire-and-forget. */
+/** Pull the avatar for rows that have one: IndexedDB first (persists across
+ *  boots), then the RPC — once per session. Fire-and-forget. */
 function fetchAvatars(rows: ProfileRow[]): void {
   for (const row of rows) {
     if (!row.has_avatar || avatarCache.has(row.name) || avatarFetching.has(row.name)) continue
     avatarFetching.add(row.name)
-    void request('profiles.get_asset', { name: row.name, asset: 'avatar' })
-      .then(res => {
-        const data = res.found ? (res.data ?? null) : null
-        if (!data) return
-        avatarCache.set(row.name, data)
-        homeBots.set(homeBots.get().map(b => (b.name === row.name ? { ...b, avatarUrl: data } : b)))
+    void readCachedAvatar(row.name)
+      .then(data => {
+        if (data) {
+          avatarCache.set(row.name, data)
+          homeBots.set(homeBots.get().map(b => (b.name === row.name ? { ...b, avatarUrl: data } : b)))
+          return
+        }
+        return request('profiles.get_asset', { name: row.name, asset: 'avatar' }).then(res => {
+          const fresh = res.found ? (res.data ?? null) : null
+          if (!fresh) return
+          avatarCache.set(row.name, fresh)
+          void writeCachedAvatar(row.name, fresh)
+          homeBots.set(homeBots.get().map(b => (b.name === row.name ? { ...b, avatarUrl: fresh } : b)))
+        })
       })
       .catch(() => undefined)
       .finally(() => avatarFetching.delete(row.name))
@@ -225,6 +237,7 @@ async function refresh(): Promise<void> {
     trackUnread(rows)
     homeProfiles.set(ordered)
     homeBots.set(ordered.map(toHomeBot))
+    writeRosterCache(ordered)
     fetchAvatars(rows)
     homeError.set('')
   } catch (e) {
@@ -234,8 +247,26 @@ async function refresh(): Promise<void> {
   }
 }
 
+/**
+ * Paint the last-known roster (non-secret labels/appearance only) before the
+ * first network answer, then refresh in the background — stale-while-
+ * revalidate. Unread watermarks are NOT seeded from the cache: the fresh
+ * `refresh()` seeds them from live data, so a badge never guesses from a
+ * snapshot that may predate reads made on another device.
+ */
+function hydrateFromCache(): void {
+  if (homeProfiles.get().length > 0) return
+  const cached = readRosterCache()
+  if (!cached || cached.rows.length === 0) return
+  homeProfiles.set(cached.rows)
+  homeBots.set(cached.rows.map(toHomeBot))
+  fetchAvatars(cached.rows)
+  homeLoading.set(false)
+}
+
 export async function loadHome(): Promise<void> {
   homeLoading.set(true)
+  hydrateFromCache()
   await Promise.all([loadActiveProfile(), refresh()])
 }
 

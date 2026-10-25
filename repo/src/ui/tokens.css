@@ -24,12 +24,23 @@
   --text-1: #e6edf3; /* foreground */
   --text-2: #7d8590; /* mutedForeground */
   --text-3: #848d97; /* derived: GitHub dark fg.muted */
-  --accent: #4a84fe; /* primary */
-  --on-accent: #161616; /* primaryForeground */
+
+  /* Hermes gold accent — the desktop skin colors sent on gateway.ready
+     (ui_accent #FFBF00), slightly desaturated for large fills. Blue survives
+     only as --link. */
+  --accent: #e8b23a;
+  --on-accent: #1a1404;
+  --accent-soft: rgba(232, 178, 58, 0.16);
+  --accent-line: #cd7f32; /* banner_border bronze */
+  --link: #58a6ff;
   --bubble-bot: var(--surface-2);
   --border: #30363d;
   --danger: #f85149; /* destructive */
+  --danger-soft: rgba(248, 81, 73, 0.16);
   --ok: #3fb950; /* derived: nous darkTerminal green */
+  --ok-soft: rgba(63, 185, 80, 0.16);
+  --warn: #d29922; /* GitHub dark attention.fg */
+  --warn-soft: rgba(210, 153, 34, 0.16);
 
   /* texture backdrop opacity (dim grayscale noise) */
   --texture-opacity: 0.05;
@@ -50,10 +61,17 @@
   --text-3: #6e7781; /* derived: GitHub light fg.subtle */
   --accent: #111114; /* ink accent (kept) */
   --on-accent: #ffffff;
+  --accent-soft: rgba(17, 17, 20, 0.08);
+  --accent-line: rgba(17, 17, 20, 0.35);
+  --link: #0969da;
   --bubble-bot: #ffffff;
   --border: #d0d7de;
   --danger: #cf222e; /* destructive */
+  --danger-soft: rgba(207, 34, 46, 0.12);
   --ok: #116329; /* derived: nous light terminal green */
+  --ok-soft: rgba(17, 99, 41, 0.12);
+  --warn: #9a6700; /* GitHub light attention.fg */
+  --warn-soft: rgba(154, 103, 0, 0.14);
 
   --texture-opacity: 0.03;
 }
@@ -84,6 +102,14 @@
      relative of the desktop's commercial Collapse. Playfair Display and
      DM Serif Display ride along as fallbacks until the user picks one. */
   --font-display: 'Bodoni Moda', 'Playfair Display', 'DM Serif Display', Georgia, serif;
+
+  /* type scale (px) — 34/28/20/17/15/13 */
+  --text-xl: 34px;
+  --text-lg: 28px;
+  --text-md: 20px;
+  --text-base: 17px;
+  --text-sm: 15px;
+  --text-xs: 13px;
 
   /* shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);

@@ -30,3 +30,20 @@ export function useSlideNavigate(): {
     back: () => startSlide('back', () => navigate(-1)),
   }
 }
+
+/**
+ * A back button that never strands the user: if there is in-app history it
+ * slides back one step, otherwise it navigates to `fallback` (deep links land
+ * on the app without any prior entry). Use this in EVERY back button.
+ */
+export function useBack(fallback: To): () => void {
+  const navigate = useNavigate()
+  return () => {
+    const idx: number | undefined = window.history.state?.idx
+    if (typeof idx === 'number' && idx > 0) {
+      startSlide('back', () => navigate(-1))
+    } else {
+      startSlide('back', () => navigate(fallback))
+    }
+  }
+}

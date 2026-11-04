@@ -27,6 +27,8 @@ export interface ProfileLookPatch {
   imageKind?: 'photo' | 'shape'
   custom?: boolean
   title?: string
+  /** "brain" model choice for the bot: auto (fast↔thinking) / fast / smart. */
+  brain?: string
 }
 
 /** The bot's `hermes-bots` namespace as its backend holds it right now. */

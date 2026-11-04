@@ -139,12 +139,36 @@ export function BotProfilePage() {
 
           <Section>
             <Row
+              icon="brain"
+              tint="accent"
+              title={t('bots.brain')}
+              subtitle={t('bots.brainSubtitle')}
+              chevron
+              onClick={() => forward(`/bots/${enc}/brain`)}
+            />
+            <Row
               icon="check"
               tint="accent"
               title={t('bots.approvals')}
               subtitle={t('bots.approvalsSubtitle')}
               chevron
               onClick={() => forward(`/bots/${enc}/approvals`)}
+            />
+            <Row
+              icon="folder"
+              tint="accent"
+              title={t('bots.skills')}
+              subtitle={t('bots.skillsSubtitle')}
+              chevron
+              onClick={() => forward(`/bots/${enc}/skills`)}
+            />
+            <Row
+              icon="note"
+              tint="accent"
+              title={t('bots.memory')}
+              subtitle={t('bots.memorySubtitle')}
+              chevron
+              onClick={() => forward(`/bots/${enc}/memory`)}
             />
             <Row
               icon="monitor"

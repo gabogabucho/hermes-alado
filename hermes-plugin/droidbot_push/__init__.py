@@ -37,12 +37,19 @@ def _profile_of(payload: dict[str, Any]) -> str:
         return "default"
 
 
+def _truncate(text: str, limit: int) -> str:
+    text = (text or "").strip()
+    return text if len(text) <= limit else text[:limit].rstrip() + "…"
+
+
 def _enqueue(kind: str, event_key: str, profile: str, title_key: str | None,
-             body_key: str, url: str, tag: str) -> None:
+             body_key: str, url: str, tag: str,
+             approval: dict[str, Any] | None = None) -> None:
     """Hilo daemon: el send HTTP (pywebpush) jamás bloquea el turno."""
     def _run() -> None:
         try:
-            webpush.send_for(kind, event_key, profile, title_key, body_key, url, tag)
+            webpush.send_for(kind, event_key, profile, title_key, body_key, url, tag,
+                             approval=approval)
         except Exception as exc:
             logger.warning("push %s (%s) falló: %s", kind, event_key, exc)
 
@@ -74,17 +81,54 @@ def _on_session_end(**payload: Any) -> None:
     _enqueue("termina", key, profile, None, body_key, url, f"droidbot:{profile}")
 
 
+def _approval_request_id(session_key: str, command: str) -> str | None:
+    """Best-effort ``request_id`` de la entrada recién encolada para este push.
+
+    El hook corre DESPUÉS del enqueue (``_await_gateway_decision``) pero su
+    payload no incluye ``request_id`` (se genera en ``_ApprovalEntry``). La
+    entrada ya vive en la cola del proceso: matcheamos por ``command`` y
+    tomamos la última (la más reciente). Ninguna cola en este proceso (CLI u
+    otra superficie) → None, y el SW resuelve FIFO por session_key.
+    """
+    try:
+        from tools.approval import list_gateway_approvals
+        pending = list_gateway_approvals(session_key)
+    except Exception:
+        return None
+    matches = [p for p in pending if str(p.get("command") or "") == command]
+    if not matches:
+        return None
+    request_id = matches[-1].get("request_id")
+    return str(request_id) if request_id else None
+
+
 def _on_pre_approval_request(**payload: Any) -> None:
-    """El bot espera una aprobación (surface gateway/local)."""
+    """El bot espera una aprobación (surface gateway/local).
+
+    El push lleva botones Approve/Reject: ``approval.respond`` del SW usa
+    ``session_key`` + ``request_id`` para resolver exactamente ESTA entrada.
+    Approve = ``once`` (consiento una sola vez, la opción más segura);
+    Reject = ``deny``. Seguidores coalescidos no generan push: adoptan la
+    decisión del líder, cuya notificación ya está en el teléfono.
+    """
     if payload.get("surface") == "cli":
         return  # el terminal ya muestra el prompt
+    if payload.get("coalesced"):
+        return  # espera coalescida: la notificación del líder ya salió
     if context.get_ctx() is None:
         return
     profile = _profile_of(payload)
+    session_key = str(payload.get("session_key") or "") or profile
+    command = str(payload.get("command") or "")
+    approval = {
+        "session_key": session_key,
+        "request_id": _approval_request_id(session_key, command),
+        "command": _truncate(command, 160),
+    }
     key = "wait:" + ":".join(str(payload.get(k) or "")
                              for k in ("turn_id", "tool_call_id", "session_id", "request_id"))
     _enqueue("necesita", key, profile, None, "approval_wait",
-             f"/chat/{_urlseg(profile)}", f"droidbot:{profile}")
+             f"/chat/{_urlseg(profile)}", f"droidbot:{profile}", approval=approval)
 
 
 def _on_human_input_request(**payload: Any) -> None:

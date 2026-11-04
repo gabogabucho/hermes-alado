@@ -7,6 +7,7 @@
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
 import { CacheFirst } from 'workbox-strategies'
+import { respondApproval, type PushApproval } from './sw-approval'
 
 declare let self: ServiceWorkerGlobalScope
 
@@ -45,6 +46,9 @@ type PushPayload = {
   body?: string
   url?: string
   tag?: string
+  approval?: PushApproval
+  actions?: Array<{ action: string; title: string }>
+  confirm?: { approve?: string; reject?: string }
 }
 
 function safeUrl(value: string | undefined): string | null {
@@ -66,35 +70,87 @@ self.addEventListener('push', (event: PushEvent) => {
   }
   const title = payload.title ?? 'Alado'
   const url = safeUrl(payload.url)
-  const options: NotificationOptions & { data?: { url: string | null } } = {
+  const options: NotificationOptions & {
+    data?: { url: string | null; approval?: PushApproval; confirm?: { approve?: string; reject?: string } }
+    actions?: Array<{ action: string; title: string }>
+  } = {
     body: payload.body ?? '',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     tag: payload.tag ?? 'droidbot',
-    data: { url },
+    data: { url, approval: payload.approval, confirm: payload.confirm },
+  }
+  // Aprobaciones: botones Approve/Reject que responde el SW sin abrir la app
+  // (Android/Chrome; iOS no soporta actions y el tap abre el chat como siempre).
+  if (payload.approval && Array.isArray(payload.actions) && payload.actions.length > 0) {
+    options.actions = payload.actions.slice(0, 2)
   }
   event.waitUntil(self.registration.showNotification(title, options))
 })
 
-self.addEventListener('notificationclick', (event: NotificationEvent) => {
-  event.notification.close()
-  const url = safeUrl((event.notification.data as { url?: string } | null)?.url) ?? '/'
-  event.waitUntil(
-    (async () => {
-      const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-      const open = all.find(client => client.url.startsWith(self.location.origin))
-      if (open) {
-        await open.focus()
-        try {
-          await open.navigate(url)
-        } catch {
-          await self.clients.openWindow(url)
-        }
-        return
-      }
+/** Abre (o enfoca) la ventana del app en `url`. */
+async function openApp(url: string): Promise<void> {
+  const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+  const open = all.find(client => client.url.startsWith(self.location.origin))
+  if (open) {
+    await open.focus()
+    try {
+      await open.navigate(url)
+    } catch {
       await self.clients.openWindow(url)
-    })(),
-  )
+    }
+    return
+  }
+  await self.clients.openWindow(url)
+}
+
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  const data =
+    (event.notification.data as
+      { url?: string; approval?: PushApproval; confirm?: { approve?: string; reject?: string } }
+      | null) ?? {}
+  const url = safeUrl(data.url) ?? '/'
+
+  // Botón Approve/Reject: resolver por websocket y avisar el resultado.
+  if (event.action === 'approve' || event.action === 'reject') {
+    event.notification.close()
+    const approval = data.approval
+    if (!approval) {
+      event.waitUntil(openApp(url))
+      return
+    }
+    const approved = event.action === 'approve'
+    const choice = approved ? 'once' : 'deny'
+    const confirmBody = approved
+      ? (data.confirm?.approve ?? '✓ Approved')
+      : (data.confirm?.reject ?? '✗ Rejected')
+    event.waitUntil(
+      (async () => {
+        let resolved = false
+        try {
+          resolved = await respondApproval(approval, choice)
+        } catch {
+          resolved = false
+        }
+        if (resolved) {
+          // Confirmación silenciosa: reemplaza la notificación tapeada.
+          await self.registration.showNotification(event.notification.title ?? 'Alado', {
+            body: confirmBody,
+            icon: '/icon-192.png',
+            tag: event.notification.tag,
+            data: { url },
+          })
+          return
+        }
+        // No se pudo resolver sin la app: abrir el chat para responder a mano.
+        await openApp(url)
+      })(),
+    )
+    return
+  }
+
+  event.notification.close()
+  event.waitUntil(openApp(url))
 })
 
 self.addEventListener('pushsubscriptionchange', (event: ExtendableEvent) => {

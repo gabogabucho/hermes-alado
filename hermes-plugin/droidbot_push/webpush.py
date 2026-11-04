@@ -34,6 +34,10 @@ STRINGS: dict[str, dict[str, str]] = {
     "wait": {"en": "Needs you…", "es": "Te necesita…"},
     "room_wait_title": {"en": "The group needs you", "es": "El grupo te necesita"},
     "room_wait_body": {"en": "Waiting for an approval", "es": "Espera una aprobación"},
+    "approve_action": {"en": "Approve", "es": "Aprobar"},
+    "reject_action": {"en": "Reject", "es": "Rechazar"},
+    "confirm_approve": {"en": "✓ Approved", "es": "✓ Aprobado"},
+    "confirm_reject": {"en": "✗ Rejected", "es": "✗ Rechazado"},
     "vault_login": {"en": "Needs you to log in to a site…", "es": "Te necesita para iniciar sesión en un sitio…"},
     "vault_code": {"en": "Needs you for a verification code…", "es": "Te necesita para un código de verificación…"},
     "vault_unlock": {"en": "Needs you to unlock your passwords…", "es": "Te necesita para desbloquear tus contraseñas…"},
@@ -154,15 +158,34 @@ def truncate_body(text: str, limit: int = _BODY_MAX_CHARS) -> str:
     return f"{cut}…"
 
 
-def build_payload(title: str, body: str, url: str, tag: str) -> dict[str, Any]:
-    """Payload del push: {title, body, url, tag} + TTL. Icon/badge los pone el SW."""
-    return {
+def build_payload(title: str, body: str, url: str, tag: str,
+                  approval: dict[str, Any] | None = None,
+                  action_titles: dict[str, str] | None = None) -> dict[str, Any]:
+    """Payload del push: {title, body, url, tag} + TTL. Icon/badge los pone el SW.
+
+    Con ``approval`` (dict con session_key/request_id/command) la notificación
+    lleva botones Approve/Reject: el SW responde via ``approval.respond`` sin
+    abrir la app. ``action_titles`` trae los labels ya localizados para ESTA
+    suscripción ({approve, reject}).
+    """
+    payload: dict[str, Any] = {
         "title": title or "Alado",
         "body": truncate_body(body),
         "url": url,
         "tag": tag,
         "ttl": _PUSH_TTL_SECONDS,
     }
+    if approval and action_titles:
+        payload["approval"] = approval
+        payload["actions"] = [
+            {"action": "approve", "title": action_titles.get("approve", "Approve")},
+            {"action": "reject", "title": action_titles.get("reject", "Reject")},
+        ]
+        payload["confirm"] = {
+            "approve": action_titles.get("confirm_approve", "✓ Approved"),
+            "reject": action_titles.get("confirm_reject", "✗ Rejected"),
+        }
+    return payload
 
 
 def _is_expired_status(status_code: int | None) -> bool:
@@ -202,13 +225,15 @@ def send_to_endpoint(subscription: dict[str, Any], payload: dict[str, Any]) -> b
 
 
 def send_for(kind: str, event_key: str, profile: str, title_key: str | None,
-             body_key: str, url: str, tag: str) -> dict[str, int]:
+             body_key: str, url: str, tag: str,
+             approval: dict[str, Any] | None = None) -> dict[str, int]:
     """Camino común de los hooks: dedupe cross-process + rate limit + envío.
 
     ``kind`` ∈ {"termina", "necesita"}: filtra suscripciones por la preferencia
     del perfil (defaults: activas). Title/body se localizan POR suscripción
     (``text_for``); ``title_key=None`` usa el nombre del perfil como título.
-    Devuelve un resumen para logs/tests.
+    ``approval`` (solo pre_approval_request) agrega botones Approve/Reject con
+    labels localizados por suscripción. Devuelve un resumen para logs/tests.
     """
     prefs = storage.get_prefs(profile)
     if not prefs.get(kind, True):
@@ -221,7 +246,15 @@ def send_for(kind: str, event_key: str, profile: str, title_key: str | None,
             continue
         title = text_for(title_key, subscription) if title_key else profile
         body = text_for(body_key, subscription)
-        payload = build_payload(title, body, url, tag)
+        action_titles = None
+        if approval:
+            action_titles = {
+                "approve": text_for("approve_action", subscription),
+                "reject": text_for("reject_action", subscription),
+                "confirm_approve": text_for("confirm_approve", subscription),
+                "confirm_reject": text_for("confirm_reject", subscription),
+            }
+        payload = build_payload(title, body, url, tag, approval=approval, action_titles=action_titles)
         try:
             if send_to_endpoint(subscription, payload):
                 sent += 1

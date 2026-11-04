@@ -254,3 +254,53 @@ def test_send_for_approval_localized_per_subscription(monkeypatch):
     assert [a["title"] for a in seen["https://push/es"]["actions"]] == ["Aprobar", "Rechazar"]
     assert seen["https://push/en"]["actions"][0]["title"] == "Approve"
     assert seen["https://push/en"]["confirm"]["reject"] == "✗ Rejected"
+
+
+# ── memoria por bot ─────────────────────────────────────────────────────────
+
+def _write_memory(tmp_path, profile="bot", entries=("recuerdo uno", "recuerdo dos"), target="memory"):
+    from droidbot_push import memory as mem
+    d = tmp_path / "profiles" / profile / "memories"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / mem.TARGETS[target]).write_text("\n§\n".join(entries), encoding="utf-8")
+    return d
+
+
+def test_memory_roundtrip_and_ids(tmp_path, monkeypatch):
+    from droidbot_push import memory as mem
+    _write_memory(tmp_path)
+    monkeypatch.setattr(mem, "_resolve_profile_dir", lambda name: tmp_path / "profiles" / name)
+    data = mem.read_memory("bot")
+    assert [e["text"] for e in data["memory"]] == ["recuerdo uno", "recuerdo dos"]
+    assert len({e["id"] for e in data["memory"]}) == 2
+    assert data["user"] == []
+
+
+def test_memory_delete_removes_exactly_one(tmp_path, monkeypatch):
+    from droidbot_push import memory as mem
+    _write_memory(tmp_path)
+    monkeypatch.setattr(mem, "_resolve_profile_dir", lambda name: tmp_path / "profiles" / name)
+    target_id = mem.read_memory("bot")["memory"][0]["id"]
+    result = mem.delete_entry("bot", "memory", target_id)
+    assert result == {"ok": True, "removed": 1}
+    remaining = mem.read_memory("bot")["memory"]
+    assert [e["text"] for e in remaining] == ["recuerdo dos"]
+
+
+def test_memory_delete_stale_id_is_refused(tmp_path, monkeypatch):
+    from droidbot_push import memory as mem
+    _write_memory(tmp_path)
+    monkeypatch.setattr(mem, "_resolve_profile_dir", lambda name: tmp_path / "profiles" / name)
+    result = mem.delete_entry("bot", "memory", "deadbeefcafe")
+    assert result["ok"] is False
+    assert len(mem.read_memory("bot")["memory"]) == 2  # intacto
+
+
+def test_memory_bad_profile_name_rejected():
+    from droidbot_push import memory as mem
+    try:
+        mem._entries_file("../evil", "memory")
+        raised = False
+    except ValueError:
+        raised = True
+    assert raised

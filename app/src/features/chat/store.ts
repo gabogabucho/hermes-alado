@@ -325,7 +325,14 @@ export async function sendMessage(text: string): Promise<void> {
   const generation = openGeneration
   const current = () => generation === openGeneration && profile === name
   const trimmed = text.trim()
-  if (!sid || !trimmed) return
+  if (!trimmed) return
+  if (!sid) {
+    // A dead socket or a boot that never finished (e.g. no secure context) used
+    // to swallow the message silently — surface it instead.
+    items.set([...items.get(), { kind: 'error', id: crypto.randomUUID(),
+      text: 'No hay conexión activa con el servidor. Recarga la página (si estás en HTTP el chat no funciona — usa HTTPS).' }])
+    return
+  }
 
   items.set([...items.get(), { kind: 'user', id: crypto.randomUUID(), text: trimmed }])
   running.set(true)

@@ -36,6 +36,14 @@ server next to Hermes, and you add it to your phone's home screen like a native 
   (view / take over / hand back).
 - **Groups of bots** — multi-bot rooms from the palm of your hand.
 - **Approvals** — approve or reject bot actions wherever you are.
+- **Approve from the notification** — approval pushes carry Approve/Reject
+  buttons (Android); the phone answers the bot without opening the app.
+- **Skills per bot** — see every skill a bot has installed, toggle them, and
+  read or edit the SKILL.md right from the phone.
+- **Transparent memory** — "what does this bot remember about me": every
+  system-prompt entry listed, delete any single one.
+- **Per-bot brain** — auto (router picks fast ↔ thinking per message), fast
+  always, or thinking always, through the server's LiteLLM router.
 - **Push notifications** — a bot finishing a turn or waiting for you pings your phone
   (via the bundled `droidbot-push` Hermes plugin).
 - **Voice** — talk to your bots on the go.

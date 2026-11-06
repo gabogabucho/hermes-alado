@@ -34,7 +34,7 @@ _load_plugin_package()
 from fastapi import APIRouter, Header, HTTPException  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from droidbot_push import storage, webpush  # noqa: E402
+from droidbot_push import memory, storage, webpush  # noqa: E402
 
 router = APIRouter()
 
@@ -136,4 +136,41 @@ def test_push(body: TestBody, x_device_id: Optional[str] = Header(default=None))
     result = webpush.send_test(_device_id(x_device_id, body.device_id))
     if result["sent"] == 0:
         raise HTTPException(status_code=404, detail="no hay suscripciones para este dispositivo")
+    return result
+
+
+# ── memoria por bot (memories/MEMORY.md + USER.md del perfil) ────────────────
+
+class MemoryDeleteBody(BaseModel):
+    profile: str
+    target: str  # "memory" | "user"
+    id: str
+
+
+@router.get("/memory")
+def get_memory(profile: str) -> dict[str, Any]:
+    """Entradas de memoria del perfil con ids estables para el borrado."""
+    try:
+        return memory.read_memory(profile)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"memory read failed: {exc}") from exc
+
+
+@router.delete("/memory")
+def delete_memory(body: MemoryDeleteBody) -> dict[str, Any]:
+    """Borra UNA entrada (id = sha1 del texto). Id viejo → 409, no borra nada."""
+    try:
+        result = memory.delete_entry(body.profile, body.target, body.id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"memory delete failed: {exc}") from exc
+    if not result.get("ok"):
+        raise HTTPException(status_code=409, detail=result.get("message", "delete failed"))
     return result

@@ -1,6 +1,9 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ErrorBoundary, ScreenCrash } from '../ui/ErrorBoundary'
+import { BotBrainPage } from '../features/bot-profile/BotBrainPage'
+import { BotMemoryPage } from '../features/bot-profile/BotMemoryPage'
+import { BotSkillsPage } from '../features/bot-profile/BotSkillsPage'
 import { BotProfileEditPage } from '../features/bot-profile/BotProfileEditPage'
 import { BotProfilePage } from '../features/bot-profile/BotProfilePage'
 import { ChatPage } from '../features/chat/ChatPage'
@@ -82,6 +85,9 @@ export function Shell() {
           <Route path="/bots/:profile" element={<BotProfilePage />} />
           <Route path="/bots/:profile/edit" element={<BotProfileEditPage />} />
           <Route path="/bots/:profile/approvals" element={<ApprovalsPage />} />
+          <Route path="/bots/:profile/skills" element={<BotSkillsPage />} />
+          <Route path="/bots/:profile/memory" element={<BotMemoryPage />} />
+          <Route path="/bots/:profile/brain" element={<BotBrainPage />} />
           <Route path="/bots/:profile/tools" element={<ToolsPage />} />
           <Route path="/bots/:profile/connectors" element={<CatalogPage />} />
           <Route path="/bots/:profile/connectors/:family/:id" element={<ConnectorDetailPage />} />

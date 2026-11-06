@@ -30,6 +30,8 @@ export type IconName =
   | 'info'
   | 'eye'
   | 'eye-off'
+  | 'note'
+  | 'brain'
 
 // 24px grid, 1.75 stroke, currentColor.
 const PATHS: Record<IconName, ReactElement> = {
@@ -124,6 +126,19 @@ const PATHS: Record<IconName, ReactElement> = {
       <rect x="3" y="6" width="18" height="12" rx="2" />
       <path d="M7 10h.01M10.5 10h.01M14 10h.01M17.5 10h.01" />
       <path d="M7 14h10" />
+    </>
+  ),
+  note: (
+    <>
+      <path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9l7-7V5a2 2 0 0 0-2-2Z" />
+      <path d="M14 21v-5a2 2 0 0 1 2-2h5" />
+      <path d="M7 8h6M7 12h4" />
+    </>
+  ),
+  brain: (
+    <>
+      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 4 17.5v-11A2.5 2.5 0 0 1 6.5 4 2.5 2.5 0 0 1 9.5 2Z" />
+      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44A2.5 2.5 0 0 0 20 17.5v-11A2.5 2.5 0 0 0 17.5 4 2.5 2.5 0 0 0 14.5 2Z" />
     </>
   ),
   power: (
